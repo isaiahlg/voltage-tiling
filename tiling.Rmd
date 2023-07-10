@@ -386,6 +386,8 @@ library(moments) # for kurtosis
 (v.median <- median(buses.sf$voltage))
 (v.ks <- ks.test(buses.sf$voltage, "pnorm", mean(buses.sf$voltage), sd(buses.sf$voltage)))
 (v.IQR <- IQR(buses.sf$voltage))
+(v.var <- var(buses.sf$voltage))
+(v.sd <- sd(buses.sf$voltage))
 (v.min <- min(buses.sf$voltage))
 (v.max <- max(buses.sf$voltage))
 
@@ -408,7 +410,11 @@ voltage_sample_glyphs <- sample(buses.sf$voltage, size = 10*nrow(buses.sf), repl
 
 (median(voltage_sample_glyphs))
 (ks.test(buses.sf$voltage, voltage_sample_glyphs))
+(wilcox.test(buses.sf$voltage, voltage_sample_glyphs))
+(t.test(buses.sf$voltage, voltage_sample_glyphs))
 (IQR(voltage_sample_glyphs))
+(var(voltage_sample_glyphs))
+(sd(voltage_sample_glyphs))
 (min(voltage_sample_glyphs))
 (max(voltage_sample_glyphs))
 ```
@@ -532,7 +538,6 @@ graph
 ##############################################
 # calculate the distances between all nodes
 dist_matrix <- distances(graph, mode = "all")
-
 ##############################################
 # calculate a similarity matrix as 1 / (h+1)^2
 sim2_matrix <- 1 / ((dist_matrix + 1)^2)
@@ -571,12 +576,14 @@ weight_voltage <- function(voltage, row) {
 }
 ##############################################
 # Apply weighted voltage function to buses.sf
+Sys.time()
 buses.sf <- buses.sf %>% mutate(
   weighted_voltage_n10_d2 = purrr::map_dbl(
     row_number(),
     ~ weight_voltage(voltage, .x)
   )
 )
+Sys.time()
 
 # filter out any columns that contain "_dev_"
 # buses.sf <- buses.sf %>% select(-contains("_dev_"))
@@ -858,7 +865,11 @@ buses.sf <- readRDS("./exports/buses_sf.rds")
 
 (median(buses.idw.sf$voltage))
 (ks.test(buses.sf$voltage, buses.idw.sf$voltage))
+(wilcox.test(buses.sf$voltage, buses.idw.sf$voltage))
+(t.test(buses.sf$voltage, buses.idw.sf$voltage))
 (IQR(buses.idw.sf$voltage))
+(var(buses.idw.sf$voltage))
+(sd(buses.idw.sf$voltage))
 (min(buses.idw.sf$voltage))
 (max(buses.idw.sf$voltage))
 ```
@@ -1070,6 +1081,7 @@ st_crs(buses.sf$geometry) <- 4326
 buses.sf <- buses.sf %>% mutate(h3r10 = point_to_cell(geometry, res = 10, simple = TRUE))
 buses.sf <- buses.sf %>% mutate(h3r11 = point_to_cell(geometry, res = 11, simple = TRUE))
 buses.sf <- buses.sf %>% mutate(h3r12 = point_to_cell(geometry, res = 12, simple = TRUE))
+buses.sf <- buses.sf %>% mutate(h3r13 = point_to_cell(geometry, res = 13, simple = TRUE))
 
 # aggregate for each resolution
 # buses.h3.r8 <- buses.sf %>% group_by(h3r8) %>% summarise(
@@ -1107,9 +1119,17 @@ buses.h3.r12 <- buses.sf %>% group_by(h3r12) %>% summarise(
   res = 12
 ) %>% rename(h3 = h3r12, voltage = avg)
 
+buses.h3.r13 <- buses.sf %>% group_by(h3r13) %>% summarise(
+  avg = mean(voltage),
+  stddev = sd(voltage),
+  count = n(), 
+  res = 13
+) %>% rename(h3 = h3r13, voltage = avg)
+
 # combine buses.h3.r9 and buses.h3.r10 and buses.h3.r11
 buses.h3 <- rbind(buses.h3.r10, buses.h3.r11, buses.h3.r12)
 # buses.h3 <- rbind(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
+buses.h3 <- buses.h3.r12
 
 rm(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
 
@@ -1497,8 +1517,17 @@ voltage_sample_h3 <- sample(buses.h3$voltage, 10*nrow(buses.h3), replace = TRUE,
 (median(voltage_sample_h3))
 (ks.test(buses.sf$voltage, voltage_sample_h3))
 (IQR(voltage_sample_h3))
+(var(voltage_sample_h3))
+(sd(voltage_sample_h3))
 (min(buses.h3$voltage))
 (max(buses.h3$voltage))
+
+#  show me the 10 buses with the highest voltages out of buses.df
+# but just the columns h3 and voltage and count
+head(arrange(buses.h3, desc(voltage))$h3, 10)
+
+# find the buses in buses.sf contained within hex 8c283098ab001ff
+buses.sf %>% filter(h3r12 == "8c283098ab001ff")
 
 # visuals
 boxplot(voltage_sample_h3)
@@ -1743,6 +1772,8 @@ voltage_sample_voronoi <- sample(voronoi.sf$voltage, size = 10*nrow(voronoi.sf),
 (median(voltage_sample_voronoi))
 (ks.test(buses.sf$voltage, voltage_sample_voronoi))
 (IQR(voltage_sample_voronoi))
+(var(voltage_sample_voronoi))
+(sd(voltage_sample_voronoi))
 (min(voltage_sample_voronoi))
 (max(voltage_sample_voronoi))
 
@@ -1815,15 +1846,16 @@ buses.s2.hi <- buses.sf %>% group_by(s2hi) %>% summarise(
 ) %>% rename(s2 = s2hi, voltage = avg)
 
 # aggregate for each resolution
-# buses.s2.vhi <- buses.sf %>% group_by(s2vhi) %>% summarise(
-#   avg = mean(voltage),
-#   stddev = sd(voltage),
-#   count = n(),
-#   res = s2_res_vhi
-# ) %>% rename(s2 = s2vhi, voltage = avg)
+buses.s2.vhi <- buses.sf %>% group_by(s2vhi) %>% summarise(
+  avg = mean(voltage),
+  stddev = sd(voltage),
+  count = n(),
+  res = s2_res_vhi
+) %>% rename(s2 = s2vhi, voltage = avg)
 
 # combine buses.s2.low, buses.s2.med, buses.s2.hi
 # buses.s2 <- rbind(buses.s2.low, buses.s2.med, buses.s2.hi, buses.s2.vhi)
+buses.s2 <- buses.s2.vhi
 buses.s2 <- rbind(buses.s2.low, buses.s2.med, buses.s2.hi)
 rm(buses.s2.low, buses.s2.med, buses.s2.hi)
 
@@ -2080,8 +2112,12 @@ voltage_sample_s2 <- sample(buses.s2.filt.true$voltage, 100*nrow(buses.s2.filt.t
 (median(voltage_sample_s2))
 (ks.test(buses.sf$voltage, voltage_sample_s2))
 (IQR(voltage_sample_s2))
+(var(voltage_sample_s2))
+(sd(voltage_sample_s2))
 (min(buses.s2.filt.true$voltage))
+(min(buses.s2$voltage))
 (max(buses.s2.filt.true$voltage))
+(max(buses.s2$voltage))
 
 # visuals
 boxplot(voltage_sample_s2)
