@@ -33,7 +33,7 @@ library(ggmap) # for getting map backgrounds
 
 #  define bounding box
 bottom <- 37.770
-top <- 37.790
+top <- 37.785
 left <- -122.230
 right <- -122.195
 
@@ -338,6 +338,53 @@ saveRDS(lines.buffer, "./exports/lines_buffer.rds")
 # plot it
 ggmap(map) +
   geom_sf(
+    data = lines.sf, 
+    color="yellow", 
+    alpha = 1.0, 
+    inherit.aes = FALSE
+  ) +
+  geom_sf(
+    data = buses.sf, 
+    # aes(color = voltage, cex = dev),
+    alpha = 0.5,
+    inherit.aes = FALSE,
+    cex = 0.7,
+    color = "darkgreen"
+  ) +
+  scale_size_continuous(
+    range = c(0, 3),
+    limits = c(0, 0.05)
+  ) +
+  scale_color_gradient2(
+    low = "darkblue",
+    mid = "white",
+    high = "darkred",
+    midpoint = 1,
+    limits = c(0.95, 1.05),
+    space = "Lab",
+    guide = "colourbar",
+    aesthetics = "color",
+    oob = scales::squish
+  ) +
+  theme(
+    legend.position = c(0.96, 0.15),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    text = element_text(family = "Serif", size = 18)
+  ) +
+  coord_sf(xlim = c(left, right), ylim = c(bottom, top)) +
+  guides(size = FALSE)
+```
+
+## Visualize Glyphs
+```{r}
+# plot it
+ggmap(map) +
+  geom_sf(
     data = buses.sf, 
     aes(color = voltage, cex = dev),
     alpha = 1.0,
@@ -346,11 +393,11 @@ ggmap(map) +
   geom_sf(
     data = lines.sf, 
     color="black", 
-    alpha = 0.05, 
+    alpha = 0.2, 
     inherit.aes = FALSE
   ) +
   scale_size_continuous(
-    range = c(0, 3),
+    range = c(0, 5),
     limits = c(0, 0.05)
   ) +
   scale_color_gradient2(
@@ -391,8 +438,8 @@ library(moments) # for kurtosis
 (v.min <- min(buses.sf$voltage))
 (v.max <- max(buses.sf$voltage))
 
-v.kurtosis <- kurtosis(buses.sf$voltage)
-v.skewness <- skewness(buses.sf$voltage)
+(v.kurtosis <- kurtosis(buses.sf$voltage))
+(v.skewness <- skewness(buses.sf$voltage))
 
 boxplot(buses.sf$voltage)
 hist(buses.sf$voltage)
@@ -417,6 +464,8 @@ voltage_sample_glyphs <- sample(buses.sf$voltage, size = 10*nrow(buses.sf), repl
 (sd(voltage_sample_glyphs))
 (min(voltage_sample_glyphs))
 (max(voltage_sample_glyphs))
+(kurtosis(voltage_sample_glyphs))
+
 ```
 
 ## Vioplot for Glyphs
@@ -558,7 +607,7 @@ buses.sf <- readRDS("./exports/buses_sf.rds")
 sim2_matrix <- readRDS("./exports/sim2_matrix.rds")
 
 # set up a function to calculate weighted voltage considering n nearest neighbors by hops (including self)
-neighbors <- 10
+neighbors <- 3
 
 # function to weight voltage
 weight_voltage <- function(voltage, row) {
@@ -578,7 +627,7 @@ weight_voltage <- function(voltage, row) {
 # Apply weighted voltage function to buses.sf
 Sys.time()
 buses.sf <- buses.sf %>% mutate(
-  weighted_voltage_n10_d2 = purrr::map_dbl(
+  weighted_voltage_n3_d2 = purrr::map_dbl(
     row_number(),
     ~ weight_voltage(voltage, .x)
   )
@@ -680,7 +729,7 @@ grd <- readRDS("./exports/grd.rds")
 buses.sp <- readRDS("./exports/buses_sp.rds")
 
 # set neighbors
-neighbors <- 10
+neighbors <- 3
 
 ##############################################
 # print current time
@@ -704,7 +753,7 @@ buses.idw <- idw(
 end_time <- Sys.time()
 end_time
 
-saveRDS(buses.idw, "./exports/buses_idw_k10_n1.rds")
+saveRDS(buses.idw, "./exports/buses_idw_k3_n1.rds")
 ```
 
 ## Convert Gridded Heatmap to Shapefile
@@ -771,7 +820,7 @@ plot.base +
 ## Redo Heatmap for Paper
 ```{r}
 # import map
-buses.idw.sf <- readRDS("./exports/buses_idw_sf_k1_n10.rds")
+buses.idw.sf <- readRDS("./exports/buses_idw_sf_k100_n1.rds")
 map <- readRDS("./exports/map.rds")
 lines.sf <- readRDS("./exports/lines_sf.rds")
 
@@ -781,7 +830,7 @@ ggmap(map) +
     data = buses.idw.sf, 
     aes(color = voltage),
     alpha = 1.0,
-    size = 1.3,
+    size = 2.5,
     shape = 15,
     inherit.aes = FALSE
   ) +
@@ -860,7 +909,7 @@ ggplot() +
 ## Computate Summary Statistics
 ```{r}
 # read in buses.idw.sf
-buses.idw.sf <- readRDS("./exports/buses_idw_sf_k100_n1.rds")
+buses.idw.sf <- readRDS("./exports/buses_idw_sf_k1_n10.rds")
 buses.sf <- readRDS("./exports/buses_sf.rds")
 
 (median(buses.idw.sf$voltage))
@@ -872,6 +921,7 @@ buses.sf <- readRDS("./exports/buses_sf.rds")
 (sd(buses.idw.sf$voltage))
 (min(buses.idw.sf$voltage))
 (max(buses.idw.sf$voltage))
+(kurtosis(buses.idw.sf$voltage))
 ```
 
 ## Violin Plot for Heatmap
@@ -1521,6 +1571,7 @@ voltage_sample_h3 <- sample(buses.h3$voltage, 10*nrow(buses.h3), replace = TRUE,
 (sd(voltage_sample_h3))
 (min(buses.h3$voltage))
 (max(buses.h3$voltage))
+(kurtosis(voltage_sample_h3))
 
 #  show me the 10 buses with the highest voltages out of buses.df
 # but just the columns h3 and voltage and count
@@ -1676,7 +1727,7 @@ ggmap(map) +
   geom_sf(
     data = lines.sf, 
     color="black", 
-    alpha = 0.05, 
+    alpha = 0.1, 
     inherit.aes = FALSE
   ) +
   scale_fill_gradient2(
@@ -1776,6 +1827,7 @@ voltage_sample_voronoi <- sample(voronoi.sf$voltage, size = 10*nrow(voronoi.sf),
 (sd(voltage_sample_voronoi))
 (min(voltage_sample_voronoi))
 (max(voltage_sample_voronoi))
+(kurtosis(voltage_sample_voronoi))
 
 # visuals
 boxplot(voltage_sample_voronoi)
@@ -2117,7 +2169,7 @@ voltage_sample_s2 <- sample(buses.s2.filt.true$voltage, 100*nrow(buses.s2.filt.t
 (min(buses.s2.filt.true$voltage))
 (min(buses.s2$voltage))
 (max(buses.s2.filt.true$voltage))
-(max(buses.s2$voltage))
+(kurtosis(voltage_sample_s2))
 
 # visuals
 boxplot(voltage_sample_s2)
