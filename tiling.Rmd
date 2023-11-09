@@ -784,28 +784,6 @@ buses.idw.sf <- sf
 saveRDS(buses.idw.sf, "./exports/buses_idw_sf_k1_n1.rds")
 ```
 
-## Export to JSON File for Web App
-```{r}
-library(jsonlite)
-library(sf)
-buses.idw.sf <- readRDS("./exports/buses_idw_sf_k100_n1.rds")
-buses.idw.df <- st_drop_geometry(buses.idw.sf)
-
-# rename long to longitude and lat to latitude
-buses.idw.df <- buses.idw.df %>% rename(longitude = long, latitude = lat)
-buses.idw.json <- toJSON(buses.idw.df)
-
-# export as csv and json
-write(buses.idw.json, file="./exports/contours.json")
-
-# export as a geojson
-# drop the columns lat, long
-buses.idw.mini.sf <- subset(buses.idw.sf, select = -c(long, lat))
-
-# convert into a geojson file
-st_write(buses.idw.mini.sf, "./exports/contours.geo.json", driver = "GeoJSON")
-```
-
 ## Plot the Heatmap
 ```{r}
 buses.idw.sf <- readRDS("./exports/buses_idw_sf_k100_n1.rds")
@@ -1214,25 +1192,6 @@ buses.h3 <- rbind(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3
 # buses.h3$area <- st_area(buses.h3$geometry)
 
 saveRDS(buses.h3, "./exports/buses_h3.rds")
-```
-
-```{r}
-library(jsonlite)
-library(sf)
-buses.h3 <- readRDS("./exports/buses_h3.rds")
-
-# convert from a sf shapefile dataframe to regular df
-buses.h3.df <- st_drop_geometry(buses.h3)
-
-# drop the area columns from buses.h3
-# buses.h3.df <- subset(buses.h3.df, select = -c(area))
-
-
-buses.h3.json <- toJSON(buses.h3.df)
-
-# export as csv and json
-write(buses.h3.json, file="./exports/buses_h3.json")
-# write.csv(buses.h3, "./exports/buses_h3.csv")
 ```
 
 ## Visualize Hexes
@@ -1694,20 +1653,6 @@ saveRDS(voronoi.sf, "./exports/voronoi_sf.rds")
 saveRDS(voronoi.sp, "./exports/voronoi_sp.rds")
 ```
 
-## Convert Voronoi to GeoJSON
-```{r}
-library(sf)
-library(jsonlite)
-
-# read in voronoi.sf
-voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
-
-# drop the columns dev, weighted_voltage_n10_d2, lng, lat, area, voltage.rounded
-voronoi.sf <- subset(voronoi.sf, select = -c(dev, weighted_voltage_n10_d2, lng, lat, area, voltage.rounded))
-
-# convert into a geojson file
-st_write(voronoi.sf, "./exports/voronoi.geo.json", driver = "GeoJSON")
-```
 
 ## Plot Voronoi Tesselations
 ```{r}
@@ -1976,30 +1921,6 @@ st_geometry(buses.s2)
 
 # export buses.s2
 saveRDS(buses.s2, "./exports/buses_s2.rds")
-```
-
-## Export as json
-```{r}
-library(jsonlite)
-library(sf)
-library(s2)
-buses.s2 <- readRDS("./exports/buses_s2.rds")
-
-
-# convert from a sf shapefile dataframe to regular df
-buses.s2.df <- st_drop_geometry(buses.s2)
-buses.s2.df$s2 <- as.character(buses.s2$s2)
-
-# keep only resolution 16
-buses.s2.df <- buses.s2.df %>% filter(res == 16)
-
-# drop the area columns from buses.s2
-# buses.s2.df <- subset(buses.s2.df, select = -c(count))
-buses.s2.json <- toJSON(buses.s2.df)
-
-# export as csv and json
-write(buses.s2.json, file="./exports/buses_s2_r16.json")
-# write.csv(buses.h3, "./exports/buses_s2.csv")
 ```
 
 ## Plot S2 Tiles
