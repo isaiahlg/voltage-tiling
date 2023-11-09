@@ -693,6 +693,7 @@ lines.sf <- readRDS("./exports/lines_sf.rds")
 
 ## Create a Grid on the Study Area
 ```{r}
+library(sf)
 library(sp) # for converting to shapefile
 library(raster) # for gridding
 
@@ -704,7 +705,7 @@ lines.buffer <- readRDS("./exports/lines_buffer.rds")
 buses.sp <- as(buses.sf, "Spatial")
 
 # set number of pixels
-n <- 100000
+n <- 400000
 
 # create a grid within a rectangle of the area
 grd <- SpatialPixels(
@@ -717,7 +718,7 @@ areas.sp <- as(lines.buffer, "Spatial")
 grd <- grd[areas.sp, ]
 plot(grd)
 
-saveRDS(grd, "./exports/grd.rds")
+saveRDS(grd, "./exports/grd400K.rds")
 saveRDS(buses.sp, "./exports/buses_sp.rds")
 ```
 
@@ -729,7 +730,7 @@ grd <- readRDS("./exports/grd.rds")
 buses.sp <- readRDS("./exports/buses_sp.rds")
 
 # set neighbors
-neighbors <- 3
+neighbors <- 1
 
 ##############################################
 # print current time
@@ -753,13 +754,13 @@ buses.idw <- idw(
 end_time <- Sys.time()
 end_time
 
-saveRDS(buses.idw, "./exports/buses_idw_k3_n1.rds")
+saveRDS(buses.idw, "./exports/buses_idw_k1_n1_400k.rds")
 ```
 
 ## Convert Gridded Heatmap to Shapefile
 ```{r}
 # read back in
-buses.idw <- readRDS("./exports/buses_idw_k1_n10.rds")
+buses.idw <- readRDS("./exports/buses_idw_k1_n1.rds")
 # plot(buses.idw)
 
 # convert buses.idw to a shapefile
@@ -780,12 +781,34 @@ sf <- subset(sf, select = -c(var1.pred, var1.var))
 buses.idw.sf <- sf
 
 # save buses.idw.sf
-saveRDS(buses.idw.sf, "./exports/buses_idw_sf_k1_n10.rds")
+saveRDS(buses.idw.sf, "./exports/buses_idw_sf_k1_n1.rds")
+```
+
+## Export to JSON File for Web App
+```{r}
+library(jsonlite)
+library(sf)
+buses.idw.sf <- readRDS("./exports/buses_idw_sf_k100_n1.rds")
+buses.idw.df <- st_drop_geometry(buses.idw.sf)
+
+# rename long to longitude and lat to latitude
+buses.idw.df <- buses.idw.df %>% rename(longitude = long, latitude = lat)
+buses.idw.json <- toJSON(buses.idw.df)
+
+# export as csv and json
+write(buses.idw.json, file="./exports/contours.json")
+
+# export as a geojson
+# drop the columns lat, long
+buses.idw.mini.sf <- subset(buses.idw.sf, select = -c(long, lat))
+
+# convert into a geojson file
+st_write(buses.idw.mini.sf, "./exports/contours.geo.json", driver = "GeoJSON")
 ```
 
 ## Plot the Heatmap
 ```{r}
-buses.idw.sf <- readRDS("./exports/buses_idw_sf_kall_n1.rds")
+buses.idw.sf <- readRDS("./exports/buses_idw_sf_k100_n1.rds")
 lines.sf <- readRDS("./exports/lines_sf.rds")
 
 # break plot down into components
@@ -820,7 +843,7 @@ plot.base +
 ## Redo Heatmap for Paper
 ```{r}
 # import map
-buses.idw.sf <- readRDS("./exports/buses_idw_sf_k100_n1.rds")
+buses.idw.sf <- readRDS("./exports/buses_idw_sf_k1_n1.rds")
 map <- readRDS("./exports/map.rds")
 lines.sf <- readRDS("./exports/lines_sf.rds")
 
@@ -1119,6 +1142,7 @@ ggmap(map) +
 ## Create Hex Map with H3
 ```{r}
 library(h3jsr)
+library(tidyverse)
 # read in buses.sf
 buses.sf <- readRDS("./exports/buses_sf.rds")
 
@@ -1126,27 +1150,27 @@ buses.sf <- readRDS("./exports/buses_sf.rds")
 st_crs(buses.sf$geometry) <- 4326
 
 # get h3 id for each
-# buses.sf <- buses.sf %>% mutate(h3r8 = point_to_cell(geometry, res = 8, simple = TRUE))
-# buses.sf <- buses.sf %>% mutate(h3r9 = point_to_cell(geometry, res = 9, simple = TRUE))
+buses.sf <- buses.sf %>% mutate(h3r8 = point_to_cell(geometry, res = 8, simple = TRUE))
+buses.sf <- buses.sf %>% mutate(h3r9 = point_to_cell(geometry, res = 9, simple = TRUE))
 buses.sf <- buses.sf %>% mutate(h3r10 = point_to_cell(geometry, res = 10, simple = TRUE))
 buses.sf <- buses.sf %>% mutate(h3r11 = point_to_cell(geometry, res = 11, simple = TRUE))
 buses.sf <- buses.sf %>% mutate(h3r12 = point_to_cell(geometry, res = 12, simple = TRUE))
-buses.sf <- buses.sf %>% mutate(h3r13 = point_to_cell(geometry, res = 13, simple = TRUE))
+# buses.sf <- buses.sf %>% mutate(h3r13 = point_to_cell(geometry, res = 13, simple = TRUE))
 
 # aggregate for each resolution
-# buses.h3.r8 <- buses.sf %>% group_by(h3r8) %>% summarise(
-#   avg = mean(voltage),
-#   stddev = sd(voltage),
-#   count = n(),
-#   res = 8
-# ) %>% rename(h3 = h3r8, voltage = avg)
+buses.h3.r8 <- buses.sf %>% group_by(h3r8) %>% summarise(
+  avg = mean(voltage),
+  stddev = sd(voltage),
+  count = n(),
+  res = 8
+) %>% rename(h3 = h3r8, voltage = avg)
 
-# buses.h3.r9 <- buses.sf %>% group_by(h3r9) %>% summarise(
-#   avg = mean(voltage),
-#   stddev = sd(voltage),
-#   count = n(),
-#   res = 9
-# ) %>% rename(h3 = h3r9, voltage = avg)
+buses.h3.r9 <- buses.sf %>% group_by(h3r9) %>% summarise(
+  avg = mean(voltage),
+  stddev = sd(voltage),
+  count = n(),
+  res = 9
+) %>% rename(h3 = h3r9, voltage = avg)
 
 buses.h3.r10 <- buses.sf %>% group_by(h3r10) %>% summarise(
   avg = mean(voltage),
@@ -1169,27 +1193,46 @@ buses.h3.r12 <- buses.sf %>% group_by(h3r12) %>% summarise(
   res = 12
 ) %>% rename(h3 = h3r12, voltage = avg)
 
-buses.h3.r13 <- buses.sf %>% group_by(h3r13) %>% summarise(
-  avg = mean(voltage),
-  stddev = sd(voltage),
-  count = n(), 
-  res = 13
-) %>% rename(h3 = h3r13, voltage = avg)
+# buses.h3.r13 <- buses.sf %>% group_by(h3r13) %>% summarise(
+#   avg = mean(voltage),
+#   stddev = sd(voltage),
+#   count = n(), 
+#   res = 13
+# ) %>% rename(h3 = h3r13, voltage = avg)
 
 # combine buses.h3.r9 and buses.h3.r10 and buses.h3.r11
-buses.h3 <- rbind(buses.h3.r10, buses.h3.r11, buses.h3.r12)
-# buses.h3 <- rbind(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
-buses.h3 <- buses.h3.r12
+# buses.h3 <- rbind(buses.h3.r10, buses.h3.r11, buses.h3.r12)
+buses.h3 <- rbind(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
+# buses.h3 <- buses.h3.r10
 
-rm(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
+# rm(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
 
 # update geometry
-buses.h3$geometry <- cell_to_polygon(buses.h3$h3)
+# buses.h3$geometry <- cell_to_polygon(buses.h3$h3)
 
 # add a column "area" with the area of each hex polygon
-buses.h3$area <- st_area(buses.h3$geometry)
+# buses.h3$area <- st_area(buses.h3$geometry)
 
 saveRDS(buses.h3, "./exports/buses_h3.rds")
+```
+
+```{r}
+library(jsonlite)
+library(sf)
+buses.h3 <- readRDS("./exports/buses_h3.rds")
+
+# convert from a sf shapefile dataframe to regular df
+buses.h3.df <- st_drop_geometry(buses.h3)
+
+# drop the area columns from buses.h3
+# buses.h3.df <- subset(buses.h3.df, select = -c(area))
+
+
+buses.h3.json <- toJSON(buses.h3.df)
+
+# export as csv and json
+write(buses.h3.json, file="./exports/buses_h3.json")
+# write.csv(buses.h3, "./exports/buses_h3.csv")
 ```
 
 ## Visualize Hexes
@@ -1651,6 +1694,21 @@ saveRDS(voronoi.sf, "./exports/voronoi_sf.rds")
 saveRDS(voronoi.sp, "./exports/voronoi_sp.rds")
 ```
 
+## Convert Voronoi to GeoJSON
+```{r}
+library(sf)
+library(jsonlite)
+
+# read in voronoi.sf
+voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+
+# drop the columns dev, weighted_voltage_n10_d2, lng, lat, area, voltage.rounded
+voronoi.sf <- subset(voronoi.sf, select = -c(dev, weighted_voltage_n10_d2, lng, lat, area, voltage.rounded))
+
+# convert into a geojson file
+st_write(voronoi.sf, "./exports/voronoi.geo.json", driver = "GeoJSON")
+```
+
 ## Plot Voronoi Tesselations
 ```{r}
 # read in voronoi.sf
@@ -1918,6 +1976,30 @@ st_geometry(buses.s2)
 
 # export buses.s2
 saveRDS(buses.s2, "./exports/buses_s2.rds")
+```
+
+## Export as json
+```{r}
+library(jsonlite)
+library(sf)
+library(s2)
+buses.s2 <- readRDS("./exports/buses_s2.rds")
+
+
+# convert from a sf shapefile dataframe to regular df
+buses.s2.df <- st_drop_geometry(buses.s2)
+buses.s2.df$s2 <- as.character(buses.s2$s2)
+
+# keep only resolution 16
+buses.s2.df <- buses.s2.df %>% filter(res == 16)
+
+# drop the area columns from buses.s2
+# buses.s2.df <- subset(buses.s2.df, select = -c(count))
+buses.s2.json <- toJSON(buses.s2.df)
+
+# export as csv and json
+write(buses.s2.json, file="./exports/buses_s2_r16.json")
+# write.csv(buses.h3, "./exports/buses_s2.csv")
 ```
 
 ## Plot S2 Tiles
