@@ -1,41 +1,63 @@
 ---
-title: "tiling"
+title: "conversions"
 author: "Isaiah Lyons-Galante"
-date: "2023-05-08"
+date: "2023-11-09"
 output: html_document
 ---
 
 # Load Libraries
 ```{r}
 library(tidyverse) # for data reading and processing
-library(ggmap) # for getting map backgrounds
-library(sf) # for converting data into spatial dfs
-library(moments) # for kurtosis
-library(tidygraph) # for converting into a network
-library(igraph) # for network analysis
-library(sp) # for converting to shapefile
-library(raster) # for gridding
-library(gstat) # for idw
-library(vioplot) # for violin plots
-library(h3jsr) # for h3 hexes
-library(ggvoronoi) # for voronoi
-library(units) # for manipulating geometry of voronoi
-library(s2)
-# library(h3) # for h3 idw
-```
-
-# Read in Primary Files
-```{r}
-# read in the data
-buses.sf <- readRDS("./exports/buses_sf.rds")
-lines.sf <- readRDS("./exports/lines_sf.rds")
+library(jsonlite)
+library(sf)
 ```
 
 # Buses
-
 ```{r}
-library(jsonlite)
-library(sf)
+# read in data
+buses.sf <- readRDS("./exports/buses_sf.rds")
+
+# look at bus columns
+colnames(buses.sf)
+
+# drop the columns dev, weighted_voltage_n10_d2, weighted_voltage_n3_d2
+buses.sf <- subset(buses.sf, select = -c(dev, weighted_voltage_n10_d2, weighted_voltage_n3_d2))
+# change column bus to name
+buses.sf <- buses.sf %>% rename(name = bus)
+
+# convert voltage 0s to 1s
+buses.sf$voltage[buses.sf$voltage == 0] <- 1
+
+# export as geojson
+st_write(buses.sf, "./exports/buses.geo.json", driver = "GeoJSON")
+```
+
+# Lines
+```{r}
+# read in data
+lines.sf <- readRDS("./exports/lines_sf.rds")
+
+# look at line columns
+colnames(lines.sf)
+
+# convert "to" to "bus1" and "from" to "bus2" and "line" to "name"
+lines.sf <- lines.sf %>% rename(bus1 = to, bus2 = from, name = line)
+
+# drop the columns dev.x and dev.y
+lines.sf <- subset(lines.sf, select = -c(dev.x, dev.y))
+
+
+# add column current with random values between 0 and 1
+set.seed(44)
+lines.sf$current <- runif(nrow(lines.sf), min = 0, max = 1)
+
+# export as geojson
+st_write(lines.sf, "./exports/lines.geo.json", driver = "GeoJSON")
+```
+
+# H3
+```{r}
+
 buses.h3 <- readRDS("./exports/buses_h3.rds")
 
 # convert from a sf shapefile dataframe to regular df
@@ -113,4 +135,24 @@ write(buses.s2.json, file="./exports/buses_s2_r16.json")
 # write.csv(buses.h3, "./exports/buses_s2.csv")
 ```
 
-# H3 Tiles
+# Charging Stations
+```{r}
+buses.sf <- readRDS("./exports/buses_sf.rds")
+
+# keep only every 250th line
+stations.sf <- buses.sf %>% subset(voltage < 0.99)
+nrow(stations.sf)
+
+# convert column names & drop extra columns
+stations.sf <- stations.sf %>% 
+    rename(name = bus) %>% 
+    subset(select = -c(dev, voltage, weighted_voltage_n10_d2, weighted_voltage_n3_d2))
+
+
+stations.sf$rating <- 150
+stations.sf[1:10,]$rating <- 300
+stations.sf[40:76,]$rating <- 70
+
+# export as json
+st_write(stations.sf, "./exports/evstations.geo.json", driver = "GeoJSON")
+```
