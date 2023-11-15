@@ -119,7 +119,7 @@ saveRDS(lines.sf, "./exports/lines_only_sf.rds")
 ## Create Separate SF for Transformers
 ```{r}
 # read in tx
-tx.df <- readRDS("./exports/tx_df.rds")
+tx.df <- readRDS("./exports/tx_only_df.rds")
 buses.df <- readRDS("./exports/buses_df.rds")
 
 # merge the tx.df with the buses.df by bus1
@@ -156,7 +156,7 @@ tx.sf <- st_as_sf(tx.df, crs = 4326)
 
 # check if any two tx share the same geometry -- 19 do, whatever
 # tx.sf.2 <- tx.sf %>% distinct(geometry, .keep_all = TRUE)
- 
+
 # export files
 View(tx.sf)
 saveRDS(tx.sf, "./exports/tx_only_sf.rds")
