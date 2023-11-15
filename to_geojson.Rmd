@@ -156,3 +156,45 @@ stations.sf[40:76,]$rating <- 70
 # export as json
 st_write(stations.sf, "./exports/evstations.geo.json", driver = "GeoJSON")
 ```
+
+# Transformers
+```{r}
+# read in data
+tx.sf <- readRDS("./exports/tx_only_sf.rds")
+
+# remove unimportant columns
+tx.sf <- tx.sf %>% select(
+  -phases,
+  -windings,
+  -loadloss,
+  -Noloadloss,
+  -normhkva,
+  -wdg1,
+  -conn1,
+  -EmergHKVA1,
+  -r1,
+  -wdg2,
+  -conn2,
+  -EmergHKVA2,
+  -r2,
+  -XHL,
+  -bus3
+)
+
+st_write(tx.sf, "./exports/tx.geo.json", driver = "GeoJSON")
+```
+
+# Lines only
+```{r}
+# read in data
+lines.sf <- readRDS("./exports/lines_only_sf.rds")
+
+# convert "to" to "bus1" and "from" to "bus2" and "line" to "name"
+lines.sf <- lines.sf %>% rename(bus1 = to, bus2 = from, name = line)
+
+# add column current with random values between 0 and 1
+set.seed(44)
+lines.sf$current <- runif(nrow(lines.sf), min = 0, max = 1)
+
+st_write(lines.sf, "./exports/linesonly.geo.json", driver = "GeoJSON")
+```

@@ -174,35 +174,111 @@ tx.w3.df <- tx.w3.dss %>% separate(V1, into = c(
 
 rm(tx.w2.dss, tx.w3.dss)
 
+# # Remove extra columns
+# tx.w3.df <- tx.w3.df %>% select(
+#   -New,
+#   -phases,
+#   -loadloss,
+#   -Noloadloss,
+#   -normhkva,
+#   -wdg1,
+#   -conn1,
+#   -Kv1,
+#   -kva1,
+#   -EmergHKVA1,
+#   -r1,
+#   -wdg2,
+#   -conn2,
+#   -Kv2,
+#   -kva2,
+#   -EmergHKVA2,
+#   -r2,
+#   -wdg3,
+#   -conn3,
+#   -Kv3,
+#   -kva3,
+#   -EmergHKVA3,
+#   -r3,
+#   -XHL,
+#   -XLT,
+#   -XHT
+# )
+# tx.w2.df <- tx.w2.df %>% select(
+#   -New,
+#   -phases,
+#   -loadloss,
+#   -Noloadloss,
+#   -normhkva,
+#   -wdg1,
+#   -conn1,
+#   -Kv1,
+#   -kva1,
+#   -EmergHKVA1,
+#   -r1,
+#   -wdg2,
+#   -conn2,
+#   -Kv2,
+#   -kva2,
+#   -EmergHKVA2,
+#   -r2,
+#   -XHL
+# )
+
 # Remove extra columns
-tx.w3.df <- tx.w3.df %>% select(-New,-phases,-loadloss,-Noloadloss,-normhkva,-wdg1,-conn1,-Kv1,-kva1,-EmergHKVA1,-r1,-wdg2,-conn2,-Kv2,-kva2,-EmergHKVA2,-r2,-wdg3,-conn3,-Kv3,-kva3,-EmergHKVA3,-r3,-XHL,-XLT,-XHT)
-tx.w2.df <- tx.w2.df %>% select(-New,-phases,-loadloss,-Noloadloss,-normhkva,-wdg1,-conn1,-Kv1,-kva1,-EmergHKVA1,-r1,-wdg2,-conn2,-Kv2,-kva2,-EmergHKVA2,-r2,-XHL)
+tx.w3.df <- tx.w3.df %>% select(
+  -New,
+  -wdg3,
+  -conn3,
+  -Kv3,
+  -kva3,
+  -EmergHKVA3,
+  -r3,
+  -XLT,
+  -XHT
+)
+tx.w2.df <- tx.w2.df %>% select(
+  -New
+)
 tx.w2.df$bus3 <- NA
 
 # Combine into a single df
 tx.df <- rbind(tx.w2.df, tx.w3.df)
 rm(tx.w2.df, tx.w3.df)
 
-# filter for 3 winding transformers
-tx.w3.df <- tx.df %>% filter(windings == 3)
-tx.w3.df <- tx.w3.df %>% filter(bus2 != bus3) 
-# always equal >> drop the third bus
-rm(tx.w3.df)
-
 # drop the bus3 and windings column
-tx.df <- tx.df %>% select(-bus3, -windings)
-tx.df <- tx.df %>% rename(line = Transformer)
+tx.df <- tx.df %>% rename(name = Transformer)
 
-# Remove the prefix "bus=" from the bus names
+
+# parse the rest of the columns
+tx.df$phases <- gsub("phases=", "", tx.df$phases)
+tx.df$windings <- gsub("windings=", "", tx.df$windings)
+tx.df$loadloss <- gsub("%loadloss=", "", tx.df$loadloss)
+tx.df$Noloadloss <- gsub("%Noloadloss=", "", tx.df$Noloadloss)
+tx.df$normhkva <- gsub("normhkva=", "", tx.df$normhkva)
+tx.df$wdg1 <- gsub("wdg=", "", tx.df$wdg1)
+tx.df$conn1 <- gsub("conn=", "", tx.df$conn1)
+tx.df$Kv1 <- gsub("Kv=", "", tx.df$Kv1)
+tx.df$kva1 <- gsub("kva=", "", tx.df$kva1)
+tx.df$EmergHKVA1 <- gsub("EmergHKVA=", "", tx.df$EmergHKVA1)
+tx.df$r1 <- gsub("%R=", "", tx.df$r1)
 tx.df$bus1 <- gsub("bus=", "", tx.df$bus1)
+tx.df$wdg2 <- gsub("wdg=", "", tx.df$wdg2)
+tx.df$conn2 <- gsub("conn=", "", tx.df$conn2)
+tx.df$Kv2 <- gsub("Kv=", "", tx.df$Kv2)
+tx.df$kva2 <- gsub("kva=", "", tx.df$kva2)
+tx.df$EmergHKVA2 <- gsub("EmergHKVA=", "", tx.df$EmergHKVA2)
+tx.df$r2 <- gsub("%R=", "", tx.df$r2)
 tx.df$bus2 <- gsub("bus=", "", tx.df$bus2)
+tx.df$XHL <- gsub("XHL=", "", tx.df$XHL)
+tx.df$bus3 <- gsub("bus=", "", tx.df$bus3)
 
 # Remove everything after the period in the bus names
 tx.df$bus1 <- gsub("\\..*", "", tx.df$bus1)
 tx.df$bus2 <- gsub("\\..*", "", tx.df$bus2)
+tx.df$bus3 <- gsub("\\..*", "", tx.df$bus3)
 
 # export the df as RDS
-saveRDS(tx.df, "./exports/tx_df.rds")
+saveRDS(tx.df, "./exports/tx_only_df.rds")
 ```
 
 ## Open Load DSS Files
