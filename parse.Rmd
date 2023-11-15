@@ -361,28 +361,159 @@ loads.df <- loads.df %>% select(-V1, -V3, -V6, -V7, -V8)
 loads.df <- loads.df %>% rename(
     name = V2,
     bus1 = V4,
-    kV = V5
-    ################################################
-    ########################################################################
-    ################################################
-    ################################################
-    ################################################
-    ################################################
+    kV = V5,
+    kW = V9,
+    kvar = V10,
+    phases = V11,
+    yearly = V12
 )
 
-# remove the prefix "bus1=" and "bus2=" from the bus1 and bus2 columns
+# remove the prefix "bus1=" from the bus1 column
 loads.df$bus1 <- gsub("bus1=", "", loads.df$bus1)
-loads.df$bus2 <- gsub("bus2=", "", loads.df$bus2)
+loads.df$kV <- gsub("kV=", "", loads.df$kV)
+loads.df$kW <- gsub("kW=", "", loads.df$kW)
+loads.df$kvar <- gsub("kvar=", "", loads.df$kvar)
+loads.df$phases <- gsub("Phases=", "", loads.df$phases)
+loads.df$yearly <- gsub("yearly=", "", loads.df$yearly)
 
 # remove the characters after the first "." in the columns bus1 and bus2
 loads.df$bus1 <- gsub("\\..*", "", loads.df$bus1)
-loads.df$bus2 <- gsub("\\..*", "", loads.df$bus2)
 
 # ensure every bus in bus1 and bus2 is in buses.df and remove any that are not # 5 removed
-loads.df <- loads.df %>% filter(bus1 %in% buses.df$bus) %>% filter(bus2 %in% buses.df$bus)
+buses.df <- readRDS("./exports/buses_df.rds")
+loads.df <- loads.df %>% filter(bus1 %in% buses.df$bus)
 
-# remove any duplicate loads based on bus1 and bus2
-loads.df <- loads.df %>% distinct(bus1, bus2, .keep_all = TRUE)
+# remove any duplicate loads based on bus1
+# nevermind, this cuts it down in half
+# loads.df <- loads.df %>% distinct(bus1, .keep_all = TRUE)
 
 # export
-saveRDS(loads.df, "./exports/loads_df.rds")```
+saveRDS(loads.df, "./exports/loads_df.rds")
+```
+
+## Storage
+```{r}
+# read in all of the load coordinates
+storage1 <- read.table("./p13u_violations/p13uhs5_1247--p13udt7430/Storage.dss", header = FALSE, sep = " ")
+storage2 <- read.table("./p13u_violations/p13uhs5_1247--p13udt27246/Storage.dss", header = FALSE, sep = " ")
+storage3 <- read.table("./p13u_violations/p13uhs21_1247--p13udt10447/Storage.dss", header = FALSE, sep = " ")
+storage4 <- read.table("./p13u_violations/p13uhs22_1247--p13udt4524/Storage.dss", header = FALSE, sep = " ")
+storage5 <- read.table("./p13u_violations/p13uhs22_1247--p13udt26466/Storage.dss", header = FALSE, sep = " ")
+storage6 <- read.table("./p13u_violations/p13uhs23_1247--p13udt28279/Storage.dss", header = FALSE, sep = " ")
+
+# combine the buscoords with rbind
+storage.df <- rbind(storage1, storage2, storage3, storage4, storage5, storage6)
+rm(storage1, storage2, storage3, storage4, storage5, storage6)
+
+# remove any rows that contain any NAs
+storage.df <- storage.df %>% drop_na() # none drop
+
+# drop uninteresting columns
+storage.df <- storage.df %>% select(-V1)
+
+# rename interesting columns
+storage.df <- storage.df %>% rename(
+    name = V2,
+    phases = V3,
+    bus1 = V4,
+    kV = V5,
+    kVA = V6,
+    kWRated = V7,
+    kWhRated = V8,
+    kWhStored = V9,
+    State = V10,
+    PercentEffCharge = V11,
+    PercentEffDischarge = V12
+)
+
+# remove the prefix "bus1=" from the bus1 column
+storage.df$phases <- gsub("phases=", "", storage.df$phases)
+storage.df$bus1 <- gsub("bus1=", "", storage.df$bus1)
+storage.df$kV <- gsub("kV=", "", storage.df$kV)
+storage.df$kVA <- gsub("kVA=", "", storage.df$kVA)
+storage.df$kWRated <- gsub("kWRated=", "", storage.df$kWRated)
+storage.df$kWhRated <- gsub("kWhRated=", "", storage.df$kWhRated)
+storage.df$kWhStored <- gsub("kWhStored=", "", storage.df$kWhStored)
+storage.df$State <- gsub("State=", "", storage.df$State)
+storage.df$PercentEffCharge <- gsub("PercentEffCharge=", "", storage.df$PercentEffCharge)
+storage.df$PercentEffDischarge <- gsub("PercentEffDischarge=", "", storage.df$PercentEffDischarge)
+
+# remove the characters after the first "." in the columns bus1 and bus2
+storage.df$bus1 <- gsub("\\..*", "", storage.df$bus1)
+
+# ensure every bus in bus1 and bus2 is in buses.df and remove any that are not # 5 removed
+buses.df <- readRDS("./exports/buses_df.rds")
+storage.df <- storage.df %>% filter(bus1 %in% buses.df$bus) # none removed
+
+# remove any duplicate storage based on bus1
+# nevermind, this removes 3 of them
+# storage.df <- storage.df %>% distinct(bus1, .keep_all = TRUE)
+
+# export
+saveRDS(storage.df, "./exports/storage_df.rds")
+```
+
+## PV Systems
+```{r}
+# read in all of the load coordinates
+pv1 <- read.table("./p13u_violations/p13uhs5_1247--p13udt7430/PVSystems.dss", header = FALSE, sep = " ", fill = TRUE)
+pv2 <- read.table("./p13u_violations/p13uhs5_1247--p13udt27246/PVSystems.dss", header = FALSE, sep = " ", fill = TRUE)
+pv3 <- read.table("./p13u_violations/p13uhs21_1247--p13udt10447/PVSystems.dss", header = FALSE, sep = " ", fill = TRUE)
+pv4 <- read.table("./p13u_violations/p13uhs22_1247--p13udt4524/PVSystems.dss", header = FALSE, sep = " ", fill = TRUE)
+pv5 <- read.table("./p13u_violations/p13uhs22_1247--p13udt26466/PVSystems.dss", header = FALSE, sep = " ", fill = TRUE)
+pv6 <- read.table("./p13u_violations/p13uhs23_1247--p13udt28279/PVSystems.dss", header = FALSE, sep = " ", fill = TRUE)
+
+# combine the buscoords with rbind
+pv.df <- rbind(pv1, pv2, pv3, pv4, pv5, pv6)
+rm(pv1, pv2, pv3, pv4, pv5, pv6)
+
+# remove any rows that contain any NAs
+pv.df <- pv.df %>% drop_na() # none drop
+
+# remove any rows where V13 doesn't begin with "yearly="
+pv.df <- pv.df %>% filter(grepl("yearly=", V13)) # drops 4
+
+# drop uninteresting columns
+pv.df <- pv.df %>% select(-V1, -V10, -V12, -V13)
+
+# print the values from the first row
+pv.df[1,]
+
+
+# rename interesting columns
+pv.df <- pv.df %>% rename(
+    name = V2,
+    bus1 = V3,
+    phases = V4,
+    kV = V5,
+    kVA = V6,
+    pmpp = V7,
+    percentCutout = V8,
+    percentCutin = V9,
+    pf = V11
+)
+
+# remove the prefix "bus1=" from the bus1 column
+pv.df$bus1 <- gsub("bus1=", "", pv.df$bus1)
+pv.df$phases <- gsub("phases=", "", pv.df$phases)
+pv.df$kV <- gsub("kV=", "", pv.df$kV)
+pv.df$kVA <- gsub("kVA=", "", pv.df$kVA)
+pv.df$pmpp <- gsub("pmpp=", "", pv.df$pmpp)
+pv.df$percentCutout <- gsub("percentCutout=", "", pv.df$percentCutout)
+pv.df$percentCutin <- gsub("percentCutin=", "", pv.df$percentCutin)
+pv.df$pf <- gsub("pf=", "", pv.df$pf)
+
+# remove the characters after the first "." in the columns bus1 and bus2
+pv.df$bus1 <- gsub("\\..*", "", pv.df$bus1)
+
+# ensure every bus in bus1 and bus2 is in buses.df and remove any that are not # 5 removed
+buses.df <- readRDS("./exports/buses_df.rds")
+pv.df <- pv.df %>% filter(bus1 %in% buses.df$bus) # none removed
+
+# remove any duplicate pv based on bus1
+# nevermind, this removes 117 of them
+# pv.df <- pv.df %>% distinct(bus1, .keep_all = TRUE)
+
+# export
+saveRDS(pv.df, "./exports/pv_df.rds")
+```
