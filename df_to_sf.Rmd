@@ -161,3 +161,9 @@ tx.sf <- st_as_sf(tx.df, crs = 4326)
 View(tx.sf)
 saveRDS(tx.sf, "./exports/tx_only_sf.rds")
 ```
+
+# Convert PV Systems
+
+# Convert Storage
+
+# Convert Loads
