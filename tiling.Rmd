@@ -330,7 +330,7 @@ lines.buffer <- st_buffer(lines.all, endCapStyle = "SQUARE", dist = 100, max_cel
 plot(lines.buffer)
 
 # export the line buffer to RDS
-saveRDS(lines.buffer, "./exports/lines_buffer.rds")
+saveRDS(lines.buffer, "./exports_envc6/lines_buffer.rds")
 ```
 
 ## Visualize the Lines and Buses
@@ -698,14 +698,14 @@ library(sp) # for converting to shapefile
 library(raster) # for gridding
 
 # read in dfs
-buses.sf <- readRDS("./exports/buses_sf.rds")
-lines.buffer <- readRDS("./exports/lines_buffer.rds")
+buses.sf <- readRDS("./exports_envc6/buses_sf.rds")
+lines.buffer <- readRDS("./exports_envc6/lines_buffer.rds")
 
 # convert buses.sf to sp
 buses.sp <- as(buses.sf, "Spatial")
 
 # set number of pixels
-n <- 400000
+n <- 100000
 
 # create a grid within a rectangle of the area
 grd <- SpatialPixels(
@@ -718,19 +718,19 @@ areas.sp <- as(lines.buffer, "Spatial")
 grd <- grd[areas.sp, ]
 plot(grd)
 
-saveRDS(grd, "./exports/grd400K.rds")
-saveRDS(buses.sp, "./exports/buses_sp.rds")
+saveRDS(grd, "./exports_envc6/grd100K.rds")
+saveRDS(buses.sp, "./exports_envc6/buses_sp.rds")
 ```
 
 ## Calculate IDW
 ```{r}
 library(gstat) # for idw
 # import grd, buses.sp
-grd <- readRDS("./exports/grd.rds")
-buses.sp <- readRDS("./exports/buses_sp.rds")
+grd <- readRDS("./exports_envc6/grd.rds")
+buses.sp <- readRDS("./exports_envc6/buses_sp.rds")
 
 # set neighbors
-neighbors <- 1
+neighbors <- 10
 
 ##############################################
 # print current time
@@ -754,13 +754,13 @@ buses.idw <- idw(
 end_time <- Sys.time()
 end_time
 
-saveRDS(buses.idw, "./exports/buses_idw_k1_n1_400k.rds")
+saveRDS(buses.idw, "./exports_envc6/buses_idw_k10_n1_100k.rds")
 ```
 
 ## Convert Gridded Heatmap to Shapefile
 ```{r}
 # read back in
-buses.idw <- readRDS("./exports/buses_idw_k1_n1.rds")
+buses.idw <- readRDS("./exports_envc6/buses_idw_k10_n1_100k.rds")
 # plot(buses.idw)
 
 # convert buses.idw to a shapefile
@@ -781,7 +781,7 @@ sf <- subset(sf, select = -c(var1.pred, var1.var))
 buses.idw.sf <- sf
 
 # save buses.idw.sf
-saveRDS(buses.idw.sf, "./exports/buses_idw_sf_k1_n1.rds")
+saveRDS(buses.idw.sf, "./exports_envc6/buses_idw_sf_k10_n1.rds")
 ```
 
 ## Plot the Heatmap
@@ -1122,7 +1122,7 @@ ggmap(map) +
 library(h3jsr)
 library(tidyverse)
 # read in buses.sf
-buses.sf <- readRDS("./exports/buses_sf.rds")
+buses.sf <- readRDS("./exports_envc6/buses_sf.rds")
 
 # set crs
 st_crs(buses.sf$geometry) <- 4326
@@ -1181,7 +1181,7 @@ buses.h3.r12 <- buses.sf %>% group_by(h3r12) %>% summarise(
 # combine buses.h3.r9 and buses.h3.r10 and buses.h3.r11
 # buses.h3 <- rbind(buses.h3.r10, buses.h3.r11, buses.h3.r12)
 buses.h3 <- rbind(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
-# buses.h3 <- buses.h3.r10
+buses.h3 <- buses.h3.r10
 
 # rm(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
 
@@ -1191,7 +1191,7 @@ buses.h3 <- rbind(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3
 # add a column "area" with the area of each hex polygon
 # buses.h3$area <- st_area(buses.h3$geometry)
 
-saveRDS(buses.h3, "./exports/buses_h3.rds")
+saveRDS(buses.h3, "./exports_envc6/buses_h3.rds")
 ```
 
 ## Visualize Hexes
@@ -1649,8 +1649,8 @@ voronoi.sf <- voronoi.sf %>% mutate(area = drop_units(st_area(geometry)))
 voronoi.sf <- voronoi.sf %>% mutate(voltage.rounded = round(voltage, 3))
 
 # export
-saveRDS(voronoi.sf, "./exports/voronoi_sf.rds")
-saveRDS(voronoi.sp, "./exports/voronoi_sp.rds")
+saveRDS(voronoi.sf, "./exports_envc6/voronoi_sf.rds")
+saveRDS(voronoi.sp, "./exports_envc6/voronoi_sp.rds")
 ```
 
 
@@ -1859,7 +1859,7 @@ abline(v=.95, lty=2)
 ```{r}
 library(s2)
 # read in buses.sf
-buses.sf <- readRDS("./exports/buses_sf.rds")
+buses.sf <- readRDS("./exports_envc6/buses_sf.rds")
 
 # set resolution
 s2_res_low <- 16
@@ -1910,7 +1910,7 @@ buses.s2.vhi <- buses.sf %>% group_by(s2vhi) %>% summarise(
 
 # combine buses.s2.low, buses.s2.med, buses.s2.hi
 # buses.s2 <- rbind(buses.s2.low, buses.s2.med, buses.s2.hi, buses.s2.vhi)
-buses.s2 <- buses.s2.vhi
+buses.s2 <- buses.s2.med
 buses.s2 <- rbind(buses.s2.low, buses.s2.med, buses.s2.hi)
 rm(buses.s2.low, buses.s2.med, buses.s2.hi)
 
@@ -1920,7 +1920,7 @@ buses.s2 <- st_set_geometry(buses.s2, s2polygeo)
 st_geometry(buses.s2)
 
 # export buses.s2
-saveRDS(buses.s2, "./exports/buses_s2.rds")
+saveRDS(buses.s2, "./exports_envc6/buses_s2.rds")
 ```
 
 ## Plot S2 Tiles
