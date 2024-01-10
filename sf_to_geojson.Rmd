@@ -194,3 +194,36 @@ lines.sf$current <- runif(nrow(lines.sf), min = 0, max = 1)
 
 st_write(lines.sf, "./exports/linesonly.geo.json", driver = "GeoJSON")
 ```
+
+## PV
+```{r}
+# read in data
+pv.sf <- readRDS("./exports/pv_sf.rds")
+
+# export to geojson
+st_write(pv.sf, "./exports_envc6/pv.geo.json", driver = "GeoJSON")
+```
+## EV
+```{r}
+# read in data
+ev.sf <- readRDS("./exports/ev_sf.rds")
+
+# export to geojson
+st_write(ev.sf, "./exports_envc6/ev.geo.json", driver = "GeoJSON")
+```
+## Storage
+```{r}
+# read in data
+storage.sf <- readRDS("./exports/storage_sf.rds")
+
+# export to geojson
+st_write(storage.sf, "./exports_envc6/storage.geo.json", driver = "GeoJSON")
+```
+## Transformers
+```{r}
+# read in data
+tx.sf <- readRDS("./exports/tx_sf.rds")
+
+# export to geojson
+st_write(tx.sf, "./exports_envc6/tx.geo.json", driver = "GeoJSON")
+```
