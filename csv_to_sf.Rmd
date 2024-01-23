@@ -56,6 +56,12 @@ bus.voltages.df <- bus.voltages.df %>% select(buses.sf$bus)
 # add in the first row of bus.voltages.df to the buses.sf$voltage
 buses.sf$voltage <- t(bus.voltages.df[1,])
 
+# export bus.voltages.df as csv
+write.csv(bus.voltages.df, "./exports_envc6/bus_voltages.csv", row.names = FALSE)
+
+# export timesteps
+write.csv(time.steps, "./exports_envc6/time_steps.csv", row.names = FALSE)
+
 # export buses.sf as geojson
 st_write(buses.sf, "./exports_envc6/buses.geo.json", driver = "GeoJSON")
 saveRDS(buses.sf, "./exports_envc6/buses_sf.rds")
