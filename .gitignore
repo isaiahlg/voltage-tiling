@@ -2,3 +2,4 @@
 *.xlsx
 .Rproj.user
 *_matrix.rds
+.env

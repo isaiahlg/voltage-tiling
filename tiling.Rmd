@@ -21,7 +21,7 @@ library(h3jsr) # for h3 hexes
 library(ggvoronoi) # for voronoi
 library(units) # for manipulating geometry of voronoi
 library(s2)
-# library(h3) # for h3 idw
+library(h3) # for h3 idw
 ```
 
 # Setup Plotting
@@ -30,27 +30,40 @@ library(s2)
 ```{r}
 library(tidyverse) # for data reading and processing
 library(ggmap) # for getting map backgrounds
+library(dotenv) # for environment variables
 
 #  define bounding box
-bottom <- 37.770
-top <- 37.785
-left <- -122.230
-right <- -122.195
+bottom <- 37.769
+top <- 37.786
+left <- -122.238
+right <- -122.187
+
+# read in env file
+load_dot_env(".env")
+google.maps.api.key <- Sys.getenv("GOOGLE_MAPS_API_KEY")
+stadia.maps.api.key <- Sys.getenv("STADIA_MAPS_API_KEY")
+
+# configure ggmap with api keys
+register_google(google.maps.api.key)
+register_stadiamaps(stadia.maps.api.key)
 
 # get background map
-map <- get_stamenmap(
+map <- ggmap::get_stadiamap(
   bbox = c(
     left = left, 
     right = right, 
     bottom = bottom, 
     top = top
   ), 
-  zoom = 15, 
-  maptype = "terrain-lines"
+  zoom = 17, 
+  maptype = "stamen_terrain_lines"
 )
 
+# display map
+ggmap(map)
+
 # export map as RDS
-saveRDS(map, "./exports/map.rds")
+saveRDS(map, "./exports/map_stadia_z17.rds")
 ```
 
 # Parsing Data
@@ -383,7 +396,7 @@ ggmap(map) +
 ## Visualize Glyphs
 ```{r}
 # plot it
-ggmap(map) +
+glyph_plot <- ggmap(map) +
   geom_sf(
     data = buses.sf, 
     aes(color = voltage, cex = dev),
@@ -397,7 +410,7 @@ ggmap(map) +
     inherit.aes = FALSE
   ) +
   scale_size_continuous(
-    range = c(0, 5),
+    range = c(0, 15),
     limits = c(0, 0.05)
   ) +
   scale_color_gradient2(
@@ -423,6 +436,18 @@ ggmap(map) +
   ) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top)) +
   guides(size = FALSE)
+
+# export an ultra-hi res version of the plot for HRLD
+ggsave(
+  filename = "figures/glyph_plot_hrld_z17.png", 
+  glyph_plot,
+  width = 15360,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
 ```
 
 ## Computate Summary Statistics
@@ -822,16 +847,16 @@ plot.base +
 ```{r}
 # import map
 buses.idw.sf <- readRDS("./exports/buses_idw_sf_k1_n1.rds")
-map <- readRDS("./exports/map.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
 lines.sf <- readRDS("./exports/lines_sf.rds")
 
 # plot it
-ggmap(map) +
+heatmap_plot <- ggmap(map) +
   geom_sf(
     data = buses.idw.sf, 
     aes(color = voltage),
     alpha = 1.0,
-    size = 2.5,
+    size = 5,
     shape = 15,
     inherit.aes = FALSE
   ) +
@@ -863,6 +888,17 @@ ggmap(map) +
     text = element_text(family = "Serif", size = 18)
   ) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top))
+
+ggsave(
+  filename = "figures/heatmap_plot_hrld_z17.png", 
+  heatmap_plot,
+  width = 15360,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
 ```
 
 ## Compare Distribution of Voltages in Heatmap to Actual Voltages
@@ -1026,7 +1062,7 @@ grd.sf$topo_voltage <- apply(
 
 
 # import map
-map <- readRDS("./exports/map.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
 
 # plot it
 ggmap(map) +
@@ -1717,7 +1753,7 @@ ggplot() +
 ```{r}
 # read in voronoi.sf
 voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
-map <- readRDS("./exports/map.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
 
 # plot it
 ggmap(map) +
@@ -1928,7 +1964,7 @@ saveRDS(buses.s2, "./exports_envc6/buses_s2.rds")
 # read in buses.s2
 buses.s2 <- readRDS("./exports/buses_s2.rds")
 lines.sf <- readRDS("./exports/lines_sf.rds")
-map <- readRDS("./exports/map.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
 
 # plot just desired resolutions
 # buses.s2 <- buses.s2 %>% filter(res != s2_res_low)
@@ -2056,7 +2092,7 @@ saveRDS(buses.s2.filt.true, "./exports/buses_s2_filt_true.rds")
 ## Plot Filtered S2 Tiles
 ```{r}
 lines.sf <- readRDS("./exports/lines_sf.rds")
-map <- readRDS("./exports/map.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
 buses.s2.filt <- readRDS("./exports/buses_s2_filt.rds")
 
 # plot it
