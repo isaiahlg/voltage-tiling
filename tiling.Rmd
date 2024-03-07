@@ -24,6 +24,12 @@ library(s2)
 library(h3) # for h3 idw
 ```
 
+# Key Datasets
+```{r}
+buses.sf <- readRDS("./exports/buses_sf.rds")
+lines.sf <- readRDS("./exports/lines_sf.rds")
+```
+
 # Setup Plotting
 
 ## Map
@@ -1169,7 +1175,7 @@ buses.sf <- buses.sf %>% mutate(h3r9 = point_to_cell(geometry, res = 9, simple =
 buses.sf <- buses.sf %>% mutate(h3r10 = point_to_cell(geometry, res = 10, simple = TRUE))
 buses.sf <- buses.sf %>% mutate(h3r11 = point_to_cell(geometry, res = 11, simple = TRUE))
 buses.sf <- buses.sf %>% mutate(h3r12 = point_to_cell(geometry, res = 12, simple = TRUE))
-# buses.sf <- buses.sf %>% mutate(h3r13 = point_to_cell(geometry, res = 13, simple = TRUE))
+buses.sf <- buses.sf %>% mutate(h3r13 = point_to_cell(geometry, res = 13, simple = TRUE))
 
 # aggregate for each resolution
 buses.h3.r8 <- buses.sf %>% group_by(h3r8) %>% summarise(
@@ -1217,12 +1223,12 @@ buses.h3.r12 <- buses.sf %>% group_by(h3r12) %>% summarise(
 # combine buses.h3.r9 and buses.h3.r10 and buses.h3.r11
 # buses.h3 <- rbind(buses.h3.r10, buses.h3.r11, buses.h3.r12)
 buses.h3 <- rbind(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
-buses.h3 <- buses.h3.r10
+buses.h3 <- buses.h3.r11
 
 # rm(buses.h3.r8, buses.h3.r9, buses.h3.r10, buses.h3.r11, buses.h3.r12)
 
 # update geometry
-# buses.h3$geometry <- cell_to_polygon(buses.h3$h3)
+buses.h3$geometry <- cell_to_polygon(buses.h3$h3)
 
 # add a column "area" with the area of each hex polygon
 # buses.h3$area <- st_area(buses.h3$geometry)
@@ -1279,6 +1285,7 @@ plot.hex + ggtitle("Voltage Hexes & Lines, Res 9-11")
 ```{r}
 # import buses.h3 and lines
 buses.h3 <- readRDS("./exports/buses_h3.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
 
 # plot just desired resolutions
 # buses.h3 <- buses.h3 %>% filter(res != 8 & res != 9)
@@ -1330,6 +1337,17 @@ ggmap(map) +
     text = element_text(family = "Serif", size = 18)
   ) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top))
+
+ggsave(
+  filename = "figures/voronoi_plot_hrld_z17.png", 
+  voronoi_plot,
+  width = 15360,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
 ```
 
 
@@ -1460,7 +1478,7 @@ buses.h3.filt <- readRDS("./exports/buses_h3_filt.rds")
 lines.sf <- readRDS("./exports/lines_sf.rds")
 
 # plot it
-ggmap(map) +
+h3_plot <- ggmap(map) +
   geom_sf(
     data = buses.h3.filt, 
     aes(fill = voltage, color = voltage),
@@ -1756,7 +1774,7 @@ voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
 map <- readRDS("./exports/map_stadia_z17.rds")
 
 # plot it
-ggmap(map) +
+voronoi_plot <- ggmap(map) +
   geom_sf(
     data = voronoi.sf, 
     aes(fill = voltage, color = voltage),
@@ -1802,6 +1820,17 @@ ggmap(map) +
     text = element_text(family = "Serif", size = 18)
   ) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top))
+
+ggsave(
+  filename = "figures/voronoi_plot_hrld_z17.png", 
+  voronoi_plot,
+  width = 15360,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
 ```
 
 ## Distribution Plot V2 for Voronoi
@@ -2096,7 +2125,7 @@ map <- readRDS("./exports/map_stadia_z17.rds")
 buses.s2.filt <- readRDS("./exports/buses_s2_filt.rds")
 
 # plot it
-ggmap(map) +
+s2_plot <- ggmap(map) +
   geom_sf(
     data = buses.s2.filt, 
     aes(fill = voltage, color = voltage),
@@ -2142,6 +2171,17 @@ ggmap(map) +
     text = element_text(family = "Serif", size = 18)
   ) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top))
+
+ggsave(
+  filename = "figures/s2_plot_hrld_z17.png", 
+  s2_plot,
+  width = 15360,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
 ```
 
 ## Distribution of S2 Vis
