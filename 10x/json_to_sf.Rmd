@@ -1,0 +1,210 @@
+```{r}
+# load libraries
+library(sf) # for reading in spatial data
+library(tidyverse) # for manipulating data frames
+library(ggmap) # for getting map backgrounds
+library(dotenv) # for environment variables
+```
+
+## Read & Clean Data
+```{r}
+# load data
+p13u <- st_read(
+    "/Users/ilyonsg/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries_combined/P13U.json",
+    drivers = "GeoJSON",
+    stringsAsFactors = TRUE
+)
+
+# copy dataframe for cleaning
+p13u_sf <- p13u
+glimpse(p13u_sf)
+
+# convert type column to factor
+p13u_sf <- p13u_sf %>%
+    mutate(
+        name = as.character(name),
+        length..km. = as.numeric(length..km.),
+        ampacity = as.numeric(ampacity),
+        inverter_size = as.numeric(inverter_size),
+        kva = as.numeric(kva),
+        kvar = as.numeric(kvar),
+        kw_rated = as.numeric(kw_rated),
+        kwh_rated = as.numeric(kwh_rated),
+        array_size = as.numeric(array_size)
+    )
+
+glimpse(p13u_sf)
+p13u_sf %>% sapply(levels)
+
+# export sf object to RDS
+saveRDS(p13u_sf, "10x/variables/p13u_sf.rds")
+```
+Rows: 882,412
+Columns: 24
+$ is_switch     <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ is_open       <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ is_fuse       <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ kva           <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ kvar          <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ kw_rated      <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ kwh_rated     <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ length..km.   <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ ampacity      <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ peak_voltage  <dbl> 0.9789937, 0.9798307, 0.9802534, 0.9706192, 0.9719708, 0…
+$ rated_kv      <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ array_size    <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ inverter_size <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ control_type  <chr> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ max_kw        <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ max_kvar      <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ is_ct         <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, …
+$ type          <chr> "Node", "Node", "Node", "Node", "Node", "Node", "Node", …
+$ name          <chr> "p13udm3166", "p13udm3168", "p13udm3169", "p13udm3170", …
+$ marker.color  <chr> "000000", "000000", "000000", "000000", "000000", "00000…
+$ marker.size   <chr> "small", "small", "small", "small", "small", "small", "s…
+$ kvs           <list> <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>,…
+$ phases        <list> <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>,…
+$ geometry      <POINT [°]> POINT (-122.2683 37.86478), POINT (-122.2682 37.86…
+
+$type
+[1] "Capacitor"   "Line"        "Load"        "Node"        "PVSystem"   
+[6] "Storage"     "Transformer"
+
+## Filter Data to Buses and Lines
+```{r}
+# look at the unique values of the type column
+# read in RDS
+p13u <- readRDS("10x/variables/p13u_sf.rds")
+
+# create lines.sf
+lines.sf <- p13u %>%
+    filter(type == "Line" | type == "Transformer")
+lines.sf <- lines.sf %>%
+    select(c(
+        "is_switch", # lines
+        "is_open", # lines
+        "is_fuse", # fuse
+        "kva", # transformer
+        "type", # all
+        "length..km.", # lines
+        "ampacity", # lines
+        "name", # all
+        "kvs", # transformer
+        "phases", # lines
+        "geometry" # all
+    )) 
+
+# create buses.sf
+buses.sf <- p13u %>%
+    filter(type == "Node")
+# drop columns that only contain NA
+buses.sf <- buses.sf %>%
+   select(c(
+         "name",
+         "peak_voltage",
+         "geometry"
+   ))
+
+saveRDS(lines.sf, "10x/variables/lines_sf.rds")
+saveRDS(buses.sf, "10x/variables/buses_sf.rds")
+```
+
+## Setup Plotting with a Map
+```{r}
+library(ggmap) # for getting map backgrounds
+library(dotenv) # for environment variables
+
+#  define bounding box
+bottom <- 37.7284
+top <- 37.90437
+left <- -122.3414
+right <- -122.1507
+
+# read in env file
+load_dot_env(".env")
+stadia.maps.api.key <- Sys.getenv("STADIA_MAPS_API_KEY")
+
+# configure ggmap with api keys
+register_stadiamaps(stadia.maps.api.key)
+
+# get background map
+map <- ggmap::get_stadiamap(
+  bbox = c(
+    left = left, 
+    right = right, 
+    bottom = bottom, 
+    top = top
+  ), 
+  zoom = 13, 
+  maptype = "stamen_terrain_lines"
+)
+
+# display map
+ggmap(map)
+
+# export map as RDS
+saveRDS(map, "10x/variables/map_stadia_z13.rds")
+```
+
+## Plot Data
+```{r}
+# read in RDS
+lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.sf <- readRDS("10x/variables/buses_sf.rds")
+map <- readRDS("10x/variables/map_stadia_z14.rds")
+                  
+# plot the buses and lines
+glyph_plot <- ggmap(map) +
+    geom_sf(
+        data = buses.sf, 
+        aes(color = peak_voltage, cex = abs(peak_voltage - 1)),
+        inherit.aes = FALSE
+    ) +  
+    # geom_sf(
+    #     data = lines.sf, 
+    #     color="black", 
+    #     alpha = 0.2, 
+    #     inherit.aes = FALSE
+    # ) +
+    scale_size_continuous(
+        range = c(0, 0.5),
+        limits = c(0, 0.05)
+    ) +
+    scale_color_gradient2(
+        low = "darkblue",
+        mid = "white",
+        high = "darkred",
+        midpoint = 1,
+        limits = c(0.95, 1.05),
+        space = "Lab",
+        guide = "colourbar",
+        aesthetics = "color",
+        oob = scales::squish
+    ) +
+    theme(
+        legend.position = c(0.96, 0.15),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        text = element_text(family = "Serif", size = 18)
+    ) +
+    coord_sf(xlim = c(left, right), ylim = c(bottom, top)) +
+    guides(size = FALSE)
+
+ggsave(
+  filename = "10x/figures/glyph_plot.png", 
+  glyph_plot,
+  width = 6480,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
+```
+
+## To Do
+- Change the Z-order of overplotted points: https://stackoverflow.com/questions/60253713/change-visual-order-of-overlapping-factor-values-in-geom-sf-in-r
