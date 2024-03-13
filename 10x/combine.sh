@@ -9,8 +9,8 @@ merge_geojson() {
     # define the directory path
     prefix="/Users/ilyonsg/Documents/nrel/data/sfo/"
     # input path is the subdirectory containing the geojson files
-    input_dir="solar_extreme_batteries_high_timeseries/"
-    output_dir="solar_extreme_batteries_high_timeseries_combined/"
+    input_dir="base_timeseries/"
+    output_dir="base_timeseries_combined/"
     # input path is the subdirectory containing the geojson files
     input_path="$prefix$input_dir$region"
     output_path="$prefix$output_dir"
@@ -30,7 +30,7 @@ merge_geojson() {
 # define the directory path
 prefix="/Users/ilyonsg/Documents/nrel/data/sfo/"
 # input path is the subdirectory containing the geojson files
-input_dir="solar_extreme_batteries_high_timeseries/"
+input_dir="base_timeseries/"
 input_path="$prefix$input_dir"
 
 # loop over all the regions in input directory
