@@ -1,0 +1,364 @@
+
+# Voronoi
+```{r}
+library(tidyverse)
+library(sf)
+library(ggmap)
+```
+
+## Read in Data
+```{r}
+# read in RDS
+lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.sf <- readRDS("10x/variables/buses_sf.rds")
+map <- readRDS("10x/variables/map_stadia_z14.rds")
+
+# get the bounding box of map
+left <- attr(map, "bb")$ll.lon
+right <- attr(map, "bb")$ur.lon
+bottom <- attr(map, "bb")$ll.lat
+top <- attr(map, "bb")$ur.lat
+```
+
+## Create Buffer Around Lines
+```{r}
+# merge the lines spatially into a single geometry
+lines.all <- st_union(lines.sf)
+
+# create a 50m buffer around lines.all
+lines.buffer <- st_buffer(
+    lines.all, 
+    endCapStyle = "ROUND", 
+    joinStyle = "ROUND",
+    dist = 100
+    # allow_holes = FALSE
+    # max_cells = 10000,
+)
+
+# visualize the line buffer
+plot(lines.buffer)
+
+# export the line buffer to RDS
+saveRDS(lines.buffer, "10x/variables/lines_buffer_100m.rds")
+```
+
+## Load Voronoi Libraries
+```{r}
+library(ggvoronoi) # for creating voronoi polygons
+library(units) # for manipulating geometry of voronoi
+```
+
+## Convert to SpatialPolygonsDataFrame
+```{r}
+# read in the line buffer
+lines.buffer <- readRDS("10x/variables/lines_buffer_100m.rds")
+
+# convert lines.buffer from an sfc_POLYGON to SpatialPolygonsDataFrame
+lines.buffer.sp <- as(lines.buffer, "Spatial")
+
+# extract lat and lng from buses.sf
+buses.sf <- buses.sf %>% mutate(
+  lng = st_coordinates(geometry)[, 1],
+  lat = st_coordinates(geometry)[, 2]
+)
+
+# convert buses.sf from an sfc_POINT to data.frame
+buses.df <- as.data.frame(st_drop_geometry(buses.sf))
+
+############################################################
+# runs for over 1h10minutes. Need to try again with terra.
+# create voronoi tesselation SpatialPolygon
+voronoi.sp <- ggvoronoi::voronoi_polygon(
+  buses.df,
+  x = "lng", 
+  y = "lat",
+  outline = lines.buffer.sp
+)
+
+############################################################
+# convert voronoi SpatialPolygon to a shapefile
+voronoi.sf <- sf::st_as_sf(voronoi.sp)
+
+# set projection of sf to ESPG:4326
+voronoi.sf <- sf::st_set_crs(voronoi.sf, 4326)
+
+# calculate the area of each polygon in voronoi.sf into a column area
+voronoi.sf <- voronoi.sf %>% mutate(area = drop_units(st_area(geometry)))
+
+# create a new column voltage.rounded that rounds voltage to the nearest 0.001
+voronoi.sf <- voronoi.sf %>% mutate(voltage.rounded = round(voltage, 3))
+
+# export
+saveRDS(voronoi.sf, "./exports_envc6/voronoi_sf.rds")
+saveRDS(voronoi.sp, "./exports_envc6/voronoi_sp.rds")
+```
+
+
+## Plot Voronoi Tesselations
+```{r}
+# read in voronoi.sf
+voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+offset <- 0.00
+squeeze <- 0.00
+# plot them
+ggplot() + 
+  geom_sf(data = voronoi.sf, aes(fill = voltage, color = voltage)) +
+  geom_sf(data = lines.sf, color="black", alpha = 0.1) +
+  scale_fill_gradient2(
+    low = "darkblue",
+    mid = "white",
+    high = "darkred",
+    midpoint = 1 + offset,
+    limits = c(0.95 + offset + squeeze, 1.05 + offset - squeeze),
+    space = "Lab",
+    guide = "colourbar",
+    aesthetics = "fill",
+    oob = scales::squish
+  ) +
+  scale_color_gradient2(
+    low = "darkblue",
+    mid = "white",
+    high = "darkred",
+    midpoint = 1 + offset,
+    limits = c(0.95 + offset + squeeze, 1.05 + offset - squeeze),
+    space = "Lab",
+    guide = "colourbar",
+    aesthetics = "color",
+    oob = scales::squish
+  ) +
+  ggtitle("Voronoi Tesselation") +
+  theme_bw()
+
+# plot distribution of voltages
+ggplot() +
+  geom_density(
+    data = voronoi.sf %>% filter(voltage > 0.99 & voltage < 1.04),
+    aes(x = voltage.rounded, weight = area),
+    fill = "gold",
+    color = "gold",
+    alpha = 0.5,
+    show.legend = TRUE,
+    adjust = 5
+  ) +
+  geom_density(
+    data = buses.sf %>% filter(voltage > 0.99 & voltage < 1.04),
+     aes(x = voltage, fill = voltage),
+    fill = "lightblue",
+    color = "lightblue",
+    alpha = 0.5,
+    show.legend = TRUE,
+    adjust = 5
+  ) +
+  ggtitle("Distribution of Voltages in Actual Buses vs Voronoi Map No Weights") + 
+  theme_bw()
+```
+
+## Replot Voronoi for Paper
+```{r}
+# read in voronoi.sf
+voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
+
+# plot it
+voronoi_plot <- ggmap(map) +
+  geom_sf(
+    data = voronoi.sf, 
+    aes(fill = voltage, color = voltage),
+    alpha = 1.0,
+    inherit.aes = FALSE
+  ) +
+  geom_sf(
+    data = lines.sf, 
+    color="black", 
+    alpha = 0.1, 
+    inherit.aes = FALSE
+  ) +
+  scale_fill_gradient2(
+    low = "darkblue",
+    mid = "white",
+    high = "darkred",
+    midpoint = 1,
+    limits = c(0.95, 1.05),
+    space = "Lab",
+    guide = "colourbar",
+    aesthetics = "fill",
+    oob = scales::squish
+  ) +
+  scale_color_gradient2(
+    low = "darkblue",
+    mid = "white",
+    high = "darkred",
+    midpoint = 1,
+    limits = c(0.95, 1.05),
+    space = "Lab",
+    guide = "colourbar",
+    aesthetics = "color",
+    oob = scales::squish
+  ) +
+  theme(
+    legend.position = c(0.96, 0.15),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(), 
+    text = element_text(family = "Serif", size = 18)
+  ) +
+  coord_sf(xlim = c(left, right), ylim = c(bottom, top))
+
+ggsave(
+  filename = "figures/voronoi_plot_hrld_z17.png", 
+  voronoi_plot,
+  width = 15360,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
+```
+
+## Distribution Plot V2 for Voronoi
+```{r}
+# read in data
+buses.sf <- readRDS("./exports/buses_sf.rds")
+voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+
+# plot distribution of voltages against normal voltages
+ggplot() +
+  geom_density(
+    data = buses.sf,
+    aes(x = voltage, fill = "Actual"),
+    color = "forestgreen",
+    alpha = 0.15,
+    adjust = 3,
+    size = 1.5
+  ) +
+  geom_density(
+    data = voronoi.sf,
+    aes(x = sample_voltage, fill = "Plotted"),
+    color = "#cbad03",
+    alpha = 0.35,
+    adjust = 3,
+    size = 1.5
+  ) +
+  xlim(0.995, 1.04) +
+  scale_fill_manual(
+    name = element_blank(),
+    values = c("Actual" = "forestgreen", "Plotted" = "gold")
+  ) +
+  labs(
+    x = "Voltage [p.u.]",
+    y = "Density"
+  ) +
+  theme(
+    legend.position = c(0.9, 0.5),
+    legend.background = element_rect(fill = "transparent"),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.background = element_blank(),
+    text = element_text(family = "Serif", size = 24)
+  )
+```
+
+## Computate Summary Statistics
+```{r}
+voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+
+voronoi.sf$weightedarea <- voronoi.sf$area / sum(voronoi.sf$area)
+# voronoi.sf$areavoltage <- voronoi.sf$area * voronoi.sf$voltage
+# voronoi.sf$voltage.area.weighted <- voronoi.sf$areavoltage / mean(voronoi.sf$area)
+nrow(voronoi.sf)
+set.seed(44)
+voltage_sample_voronoi <- sample(voronoi.sf$voltage, size = 10*nrow(voronoi.sf), replace = TRUE, prob = voronoi.sf$weightedarea)
+
+# stats
+(median(voltage_sample_voronoi))
+(ks.test(buses.sf$voltage, voltage_sample_voronoi))
+(IQR(voltage_sample_voronoi))
+(var(voltage_sample_voronoi))
+(sd(voltage_sample_voronoi))
+(min(voltage_sample_voronoi))
+(max(voltage_sample_voronoi))
+(kurtosis(voltage_sample_voronoi))
+
+# visuals
+boxplot(voltage_sample_voronoi)
+hist(voltage_sample_voronoi)
+```
+
+## Vioplot for Voronoi
+```{r}
+# violin plot
+library(vioplot)
+
+par(family = "serif", cex = 1.2)
+vioplot(buses.sf$voltage, ylim=c(0.94,1.07), side="left", at=0.97, xaxt='n', yaxt='n', horizontal = TRUE, col = "#929cfc")
+vioplot(voltage_sample_voronoi, ylim=c(0.94,1.07), side="right", at=1.03, add=TRUE, horizontal = TRUE, col = "#fda99c")
+title(xlab = "Voltage [p.u.]")
+axis(1, at=c(0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 1.0, 1.01, 1.02, 1.03, 1.04, 1.05, 1.06, 1.07))
+axis(2, at=c(0.75, 1.25), tick=FALSE, labels = c("Actual", "| Visualized"))
+abline(v=1.05, lty=2)
+abline(v=.95, lty=2)
+# abline(h=1, lty=1)
+```
+
+## New Plot
+```{r}
+# plot the buses and lines
+glyph_plot <- ggmap(map) +
+    geom_sf(
+        data = buses.sf, 
+        aes(color = peak_voltage, cex = abs(peak_voltage - 1)),
+        inherit.aes = FALSE
+    ) +  
+    # geom_sf(
+    #     data = lines.sf, 
+    #     color="black", 
+    #     alpha = 0.2, 
+    #     inherit.aes = FALSE
+    # ) +
+    scale_size_continuous(
+        range = c(0, 0.2),
+        limits = c(0, 0.05)
+    ) +
+    scale_color_gradient2(
+        low = "darkblue",
+        mid = "white",
+        high = "darkred",
+        midpoint = 0.99,
+        limits = c(0.95, 1.05),
+        space = "Lab",
+        guide = "colourbar",
+        aesthetics = "color",
+        oob = scales::squish
+    ) +
+    theme(
+        legend.position = c(0.96, 0.15),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        text = element_text(family = "Serif", size = 18)
+    ) +
+    coord_sf(xlim = c(left, right), ylim = c(bottom, top)) +
+    guides(size = FALSE)
+
+ggsave(
+  filename = "10x/figures/glyph_plot_v2.png", 
+  glyph_plot,
+  width = 6480,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
+```
+
+## To Do
+- Change the Z-order of overplotted points: https://stackoverflow.com/questions/60253713/change-visual-order-of-overlapping-factor-values-in-geom-sf-in-r
+- Determine if we should use a different scenario from the sfo dataset
