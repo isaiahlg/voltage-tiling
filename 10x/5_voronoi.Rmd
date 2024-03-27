@@ -44,6 +44,7 @@ saveRDS(lines.buffer, "10x/variables/lines_buffer_100m.rds")
 
 ## Load Voronoi Libraries
 ```{r}
+library(terra)
 library(ggvoronoi) # for creating voronoi polygons
 library(units) # for manipulating geometry of voronoi
 ```
@@ -53,29 +54,24 @@ library(units) # for manipulating geometry of voronoi
 # read in the line buffer
 lines.buffer <- readRDS("10x/variables/lines_buffer_100m.rds")
 
-# convert lines.buffer from an sfc_POLYGON to SpatialPolygonsDataFrame
-lines.buffer.sp <- as(lines.buffer, "Spatial")
-
-# extract lat and lng from buses.sf
-buses.sf <- buses.sf %>% mutate(
-  lng = st_coordinates(geometry)[, 1],
-  lat = st_coordinates(geometry)[, 2]
-)
-
-# convert buses.sf from an sfc_POINT to data.frame
-buses.df <- as.data.frame(st_drop_geometry(buses.sf))
+# convert buses and line buffer to 'SpatVector'
+buses.sv <- terra::vect(buses.sf)
+lines.buffer.sv <- terra::vect(lines.buffer)
 
 ############################################################
-# runs for over 1h10minutes. Need to try again with terra.
 # create voronoi tesselation SpatialPolygon
-voronoi.sp <- ggvoronoi::voronoi_polygon(
-  buses.df,
-  x = "lng", 
-  y = "lat",
-  outline = lines.buffer.sp
+voronoi.sv <- terra::voronoi(
+  x = buses.sv, # SpatVector
+  bnd = lines.buffer.sv, # SpatVector to set the outer boundary of the voronoi diagram
+  tolerance = 0, # numeric >= 0, snapping tolerance (0 is no snapping)
+  as.lines = FALSE, # logical. If TRUE, lines are returned without the outer boundary
+  deldir = FALSE # logical. If TRUE, the deldir is used instead of the GEOS C++ library method. It has been reported that deldir does not choke on very large data sets
 )
-
 ############################################################
+
+plot(voronoi.sv)
+
+
 # convert voronoi SpatialPolygon to a shapefile
 voronoi.sf <- sf::st_as_sf(voronoi.sp)
 
