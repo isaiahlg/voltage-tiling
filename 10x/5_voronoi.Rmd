@@ -44,9 +44,9 @@ saveRDS(lines.buffer, "10x/variables/lines_buffer_100m.rds")
 
 ## Load Voronoi Libraries
 ```{r}
-library(terra)
-library(ggvoronoi) # for creating voronoi polygons
+library(terra) # for creating voronoi polygons
 library(units) # for manipulating geometry of voronoi
+# library(ggvoronoi) # for creating voronoi polygons
 ```
 
 ## Convert to SpatialPolygonsDataFrame
@@ -73,7 +73,7 @@ plot(voronoi.sv)
 
 
 # convert voronoi SpatialPolygon to a shapefile
-voronoi.sf <- sf::st_as_sf(voronoi.sp)
+voronoi.sf <- sf::st_as_sf(voronoi.sv)
 
 # set projection of sf to ESPG:4326
 voronoi.sf <- sf::st_set_crs(voronoi.sf, 4326)
@@ -86,7 +86,7 @@ voronoi.sf <- voronoi.sf %>% mutate(voltage.rounded = round(voltage, 3))
 
 # export
 saveRDS(voronoi.sf, "./exports_envc6/voronoi_sf.rds")
-saveRDS(voronoi.sp, "./exports_envc6/voronoi_sp.rds")
+saveRDS(voronoi.sv, "./exports_envc6/voronoi_sv.rds")
 ```
 
 
