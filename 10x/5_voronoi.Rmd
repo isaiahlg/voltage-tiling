@@ -85,15 +85,15 @@ voronoi.sf <- voronoi.sf %>% mutate(area = drop_units(st_area(geometry)))
 voronoi.sf <- voronoi.sf %>% mutate(voltage.rounded = round(voltage, 3))
 
 # export
-saveRDS(voronoi.sf, "./exports_envc6/voronoi_sf.rds")
-saveRDS(voronoi.sv, "./exports_envc6/voronoi_sv.rds")
+saveRDS(voronoi.sf, "10x/variables/voronoi_sf.rds")
+saveRDS(voronoi.sv, "10x/variables/voronoi_sv.rds")
 ```
 
 
 ## Plot Voronoi Tesselations
 ```{r}
 # read in voronoi.sf
-voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
 offset <- 0.00
 squeeze <- 0.00
 # plot them
@@ -152,8 +152,8 @@ ggplot() +
 ## Replot Voronoi for Paper
 ```{r}
 # read in voronoi.sf
-voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
-map <- readRDS("./exports/map_stadia_z17.rds")
+voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
+map <- readRDS("10x/variables/map_stadia_z17.rds")
 
 # plot it
 voronoi_plot <- ggmap(map) +
@@ -218,8 +218,8 @@ ggsave(
 ## Distribution Plot V2 for Voronoi
 ```{r}
 # read in data
-buses.sf <- readRDS("./exports/buses_sf.rds")
-voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+buses.sf <- readRDS("10x/variables/buses_sf.rds")
+voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
 
 # plot distribution of voltages against normal voltages
 ggplot() +
@@ -260,7 +260,7 @@ ggplot() +
 
 ## Computate Summary Statistics
 ```{r}
-voronoi.sf <- readRDS("./exports/voronoi_sf.rds")
+voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
 
 voronoi.sf$weightedarea <- voronoi.sf$area / sum(voronoi.sf$area)
 # voronoi.sf$areavoltage <- voronoi.sf$area * voronoi.sf$voltage
