@@ -49,7 +49,7 @@ library(units) # for manipulating geometry of voronoi
 # library(ggvoronoi) # for creating voronoi polygons
 ```
 
-## Convert to SpatialPolygonsDataFrame
+## Create Voronoi Tesselations
 ```{r}
 # read in the line buffer
 lines.buffer <- readRDS("10x/variables/lines_buffer_100m.rds")
@@ -69,8 +69,24 @@ voronoi.sv <- terra::voronoi(
 )
 ############################################################
 
-plot(voronoi.sv)
+# export
+saveRDS(voronoi.sf, "10x/variables/voronoi_sf.rds")
+saveRDS(voronoi.sv, "10x/variables/voronoi_sv.rds")
 
+```
+
+## Convert to SF
+```{r}
+# read in voronoi.sv
+voronoi.sv <- readRDS("10x/variables/voronoi_sv.rds")
+
+# plot it
+plot(voronoi.sv) # crashes
+
+# export 
+png(filename = "10x/figures/voronoi_shell.png", width = 6480, height = 6480, units = "px", res = 300)
+plot(voronoi.sv) # Your plotting code
+dev.off() # Close the device
 
 # convert voronoi SpatialPolygon to a shapefile
 voronoi.sf <- sf::st_as_sf(voronoi.sv)
@@ -84,76 +100,12 @@ voronoi.sf <- voronoi.sf %>% mutate(area = drop_units(st_area(geometry)))
 # create a new column voltage.rounded that rounds voltage to the nearest 0.001
 voronoi.sf <- voronoi.sf %>% mutate(voltage.rounded = round(voltage, 3))
 
-# export
-saveRDS(voronoi.sf, "10x/variables/voronoi_sf.rds")
-saveRDS(voronoi.sv, "10x/variables/voronoi_sv.rds")
 ```
 
-
-## Plot Voronoi Tesselations
+## Plot Voronoi
 ```{r}
 # read in voronoi.sf
 voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
-offset <- 0.00
-squeeze <- 0.00
-# plot them
-ggplot() + 
-  geom_sf(data = voronoi.sf, aes(fill = voltage, color = voltage)) +
-  geom_sf(data = lines.sf, color="black", alpha = 0.1) +
-  scale_fill_gradient2(
-    low = "darkblue",
-    mid = "white",
-    high = "darkred",
-    midpoint = 1 + offset,
-    limits = c(0.95 + offset + squeeze, 1.05 + offset - squeeze),
-    space = "Lab",
-    guide = "colourbar",
-    aesthetics = "fill",
-    oob = scales::squish
-  ) +
-  scale_color_gradient2(
-    low = "darkblue",
-    mid = "white",
-    high = "darkred",
-    midpoint = 1 + offset,
-    limits = c(0.95 + offset + squeeze, 1.05 + offset - squeeze),
-    space = "Lab",
-    guide = "colourbar",
-    aesthetics = "color",
-    oob = scales::squish
-  ) +
-  ggtitle("Voronoi Tesselation") +
-  theme_bw()
-
-# plot distribution of voltages
-ggplot() +
-  geom_density(
-    data = voronoi.sf %>% filter(voltage > 0.99 & voltage < 1.04),
-    aes(x = voltage.rounded, weight = area),
-    fill = "gold",
-    color = "gold",
-    alpha = 0.5,
-    show.legend = TRUE,
-    adjust = 5
-  ) +
-  geom_density(
-    data = buses.sf %>% filter(voltage > 0.99 & voltage < 1.04),
-     aes(x = voltage, fill = voltage),
-    fill = "lightblue",
-    color = "lightblue",
-    alpha = 0.5,
-    show.legend = TRUE,
-    adjust = 5
-  ) +
-  ggtitle("Distribution of Voltages in Actual Buses vs Voronoi Map No Weights") + 
-  theme_bw()
-```
-
-## Replot Voronoi for Paper
-```{r}
-# read in voronoi.sf
-voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
-map <- readRDS("10x/variables/map_stadia_z17.rds")
 
 # plot it
 voronoi_plot <- ggmap(map) +
@@ -163,12 +115,12 @@ voronoi_plot <- ggmap(map) +
     alpha = 1.0,
     inherit.aes = FALSE
   ) +
-  geom_sf(
-    data = lines.sf, 
-    color="black", 
-    alpha = 0.1, 
-    inherit.aes = FALSE
-  ) +
+  # geom_sf(
+  #   data = lines.sf, 
+  #   color="black", 
+  #   alpha = 0.1, 
+  #   inherit.aes = FALSE
+  # ) +
   scale_fill_gradient2(
     low = "darkblue",
     mid = "white",
@@ -186,7 +138,7 @@ voronoi_plot <- ggmap(map) +
     high = "darkred",
     midpoint = 1,
     limits = c(0.95, 1.05),
-    space = "Lab",
+    space = "Labx",
     guide = "colourbar",
     aesthetics = "color",
     oob = scales::squish
@@ -198,15 +150,15 @@ voronoi_plot <- ggmap(map) +
     axis.ticks.y = element_blank(),
     axis.ticks.x = element_blank(),
     axis.text.x = element_blank(),
-    axis.text.y = element_blank(), 
+    axis.text.y = element_blank(),
     text = element_text(family = "Serif", size = 18)
   ) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top))
 
 ggsave(
-  filename = "figures/voronoi_plot_hrld_z17.png", 
+  filename = "10x/figures/voronoi_plot_hires.png", 
   voronoi_plot,
-  width = 15360,
+  width = 6480,
   height = 6480,
   dpi = 300,
   units = "px",
@@ -214,6 +166,14 @@ ggsave(
   limitsize = FALSE
 )
 ```
+
+########################################################
+########################################################
+########################################################
+########################################################
+########################################################
+########################################################
+########################################################
 
 ## Distribution Plot V2 for Voronoi
 ```{r}
@@ -300,61 +260,5 @@ abline(v=.95, lty=2)
 # abline(h=1, lty=1)
 ```
 
-## New Plot
-```{r}
-# plot the buses and lines
-glyph_plot <- ggmap(map) +
-    geom_sf(
-        data = buses.sf, 
-        aes(color = peak_voltage, cex = abs(peak_voltage - 1)),
-        inherit.aes = FALSE
-    ) +  
-    # geom_sf(
-    #     data = lines.sf, 
-    #     color="black", 
-    #     alpha = 0.2, 
-    #     inherit.aes = FALSE
-    # ) +
-    scale_size_continuous(
-        range = c(0, 0.2),
-        limits = c(0, 0.05)
-    ) +
-    scale_color_gradient2(
-        low = "darkblue",
-        mid = "white",
-        high = "darkred",
-        midpoint = 0.99,
-        limits = c(0.95, 1.05),
-        space = "Lab",
-        guide = "colourbar",
-        aesthetics = "color",
-        oob = scales::squish
-    ) +
-    theme(
-        legend.position = c(0.96, 0.15),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.ticks.y = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        text = element_text(family = "Serif", size = 18)
-    ) +
-    coord_sf(xlim = c(left, right), ylim = c(bottom, top)) +
-    guides(size = FALSE)
-
-ggsave(
-  filename = "10x/figures/glyph_plot_v2.png", 
-  glyph_plot,
-  width = 6480,
-  height = 6480,
-  dpi = 300,
-  units = "px",
-  device = "png",
-  limitsize = FALSE
-)
-```
-
 ## To Do
-- Change the Z-order of overplotted points: https://stackoverflow.com/questions/60253713/change-visual-order-of-overlapping-factor-values-in-geom-sf-in-r
-- Determine if we should use a different scenario from the sfo dataset
+- Regenerate the vornoi polygons with the border
