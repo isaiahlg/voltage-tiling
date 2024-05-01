@@ -10,7 +10,7 @@ library(ggmap)
 ## Read in Data
 ```{r}
 # read in RDS
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
+# lines.sf <- readRDS("10x/variables/lines_sf.rds")
 buses.sf <- readRDS("10x/variables/buses_sf.rds")
 map <- readRDS("10x/variables/map_stadia_z14.rds")
 
@@ -39,28 +39,42 @@ buses.sf <- buses.sf %>% filter(!is.na(voltage)) # drops 248 buses
 buses.sf <- buses.sf %>% mutate(s2geo = as_s2_geography(geometry))
 buses.sf <- buses.sf %>% mutate(s2cell = as_s2_cell(s2geo))
 
+glimpse(buses.sf)
+
 # get s2 id for each bus
 min_res <- 14
-max_res <- 15
+max_res <- 18
 for (res in min_res:max_res) {
   s2_col <- paste0("s2r", res)
   buses.sf[[s2_col]] <- s2_cell_parent(buses.sf$s2cell, res)
 }
 glimpse(buses.sf)
+```
 
+## Aggregate Data for Each S2 Resolution
+```{r}
 # aggregate for each resolution
 # loop fromo min_res to max_res
 buses.s2 <- list()
-for (res in min_res:max_res) {
+
+# Function to aggregate data for each resolution
+aggregate_data <- function(res) {
   s2_col <- paste0("s2r", res)
-  buses.s2[[res]] <- buses.sf %>% group_by(!!sym(s2_col)) %>% summarise(
-    avg = mean(voltage, na.rm = TRUE),
-    stddev = sd(voltage, na.rm = TRUE),
-    count = n(),
-    res = res
-  ) %>% rename(s2 = !!sym(s2_col), voltage = avg)
+  buses.sf %>%
+    group_by(!!sym(s2_col)) %>%
+    summarise(
+      avg = mean(voltage, na.rm = TRUE),
+      stddev = sd(voltage, na.rm = TRUE),
+      count = n(),
+      res = res
+    ) %>%
+    rename(s2 = !!sym(s2_col), voltage = avg)
 }
-# combine all resolutions
+
+# Aggregate data for each resolution
+buses.s2 <- lapply(min_res:max_res, aggregate_data)
+
+# Combine data for all resolutions
 buses.s2 <- do.call(rbind, buses.s2)
 # update geometry from MultiPoint to Polygon
 s2poly <- s2_cell_polygon(buses.s2$s2)
@@ -72,16 +86,15 @@ buses.s2$area <- st_area(buses.s2$geometry)
 # inspect before exporting
 glimpse(buses.s2)
 # export
-saveRDS(buses.s2, "10x/variables/buses_s2_r8to12.rds")
+saveRDS(buses.s2, "10x/variables/buses_s2_r14to15.rds")
 ```
 
-## Visualize Hexes
+## Visualize Tiles
 ```{r}
 # import buses.s2 and lines
-buses.s2 <- readRDS("10x/variables/buses_s2_r8to12.rds")
+buses.s2 <- readRDS("10x/variables/buses_s2_r14to18.rds")
 # plot just desired resolutions
-buses.s2 <- buses.s2 %>% filter(res == 9)
-glimpse(buses.s2)
+buses.s2 <- buses.s2 %>% filter(res == 18)
 
 # plot it
 s2plot <- ggmap(map) +
@@ -126,13 +139,13 @@ s2plot <- ggmap(map) +
     axis.ticks.y = element_blank(),
     axis.ticks.x = element_blank(),
     axis.text.x = element_blank(),
-    axis.text.y = element_blank(),    
+    axis.text.y = element_blank(),
     text = element_text(family = "Serif", size = 18)
   ) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top))
 
 ggsave(
-  filename = "10x/figures/s2_plot_r9.png", 
+  filename = "10x/figures/s2_plot_r18.png", 
   s2plot,
   width = 6840,
   height = 6480,
@@ -449,3 +462,82 @@ abline(v=1.05, lty=2)
 abline(v=.95, lty=2)
 # abline(h=1, lty=1)
 ```
+
+
+<!-- 
+## Run Loops with Multiple Cores
+# ```{r}
+# Load necessary libraries
+# library(foreach)
+# library(doParallel)
+
+# # Set the number of cores
+# cores <- detectCores()
+
+# # Initialize parallel processing
+# cl <- makeCluster(cores, outfile="")
+# registerDoParallel(cl)
+
+# # Evaluate necessary code on each cluster worker
+# clusterEvalQ(cl, {
+#   library(sf)
+#   library(s2)
+# })
+```
+
+## Extract S2 ID for Each Bus
+# ```{r}
+# Read back in buses.sf
+# buses.sf <- readRDS("10x/variables/buses_sf_s2.rds")
+
+# # Define the range of resolutions
+# min_res <- 14
+# max_res <- 15
+
+# # Export necessary objects to the cluster workers
+# clusterExport(cl, c("buses.sf"))
+
+# # Function to compute s2 id for each bus
+# compute_s2_id <- function(res) {
+#   s2_col <- paste0("s2r", res)
+#   buses.sf[[s2_col]] <- s2_cell_parent(buses.sf$s2cell, res)
+# }
+
+# # Compute s2 id for each bus in parallel
+# foreach(res = min_res:max_res) %dopar% {
+#   compute_s2_id(res)
+# }
+
+# glimpse(buses.sf)
+```
+
+## Aggregate Data for Each S2 Resolution
+# ```{r}
+# Export necessary objects to the cluster workers
+# clusterExport(cl, c("buses.sf"))
+
+# # Function to aggregate data for each resolution
+# aggregate_data <- function(res) {
+#   s2_col <- paste0("s2r", res)
+#   buses.sf %>%
+#     group_by(!!sym(s2_col)) %>%
+#     summarise(
+#       avg = mean(voltage, na.rm = TRUE),
+#       stddev = sd(voltage, na.rm = TRUE),
+#       count = n(),
+#       res = res
+#     ) %>%
+#     rename(s2 = !!sym(s2_col), voltage = avg)
+# }
+
+# # Aggregate data for each resolution in parallel
+# buses.s2 <- foreach(res = min_res:max_res) %dopar% {
+#   aggregate_data(res)
+# }
+
+# # Stop parallel processing
+# stopCluster(cl)
+
+# # Combine data for all resolutions
+# # buses.s2 <- do.call(rbind, buses.s2)
+``` -->
