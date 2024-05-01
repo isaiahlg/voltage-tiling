@@ -1,0 +1,128 @@
+# Contours
+
+## Load General Libraries
+```{r}
+library(tidyverse)
+library(sf)
+library(ggmap)
+```
+
+## Read in Data
+```{r}
+# read in RDS
+# lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.sf <- readRDS("10x/variables/buses_sf.rds")
+map <- readRDS("10x/variables/map_stadia_z14.rds")
+
+# get the bounding box of map
+left <- attr(map, "bb")$ll.lon
+right <- attr(map, "bb")$ur.lon
+bottom <- attr(map, "bb")$ll.lat
+top <- attr(map, "bb")$ur.lat
+```
+
+## Load Contour Map Libraries
+```{r}
+library(terra)
+library(gstat)
+```
+
+## Create Contours
+```{r}
+# load in lines buffer
+buses.sf <- readRDS("10x/variables/buses_sf.rds")
+lines.buffer <- readRDS("10x/variables/lines_buffer_100m.rds")
+
+# Convert the lines buffer to a vector
+lines.buffer.vec <- vect(lines.buffer)
+# get the extent of lines.buffer.vec
+ext <- ext(lines.buffer.vec)
+# create a grid of the same extent
+grd <- rast(ext, res=0.0001)
+
+# convert buses.sf to buses.df
+buses.df <- buses.sf %>% st_drop_geometry()
+# drop nas from any column
+buses.df <- na.omit(buses.df)
+# rename lng and lat to x and y
+names(buses.df) <- c("name", "voltage", "x", "y")
+# glimpse(buses.df)
+
+neighbors <- 10
+# define interpolation model
+mg <- gstat(
+  id = "idw", 
+  formula = voltage~1, 
+  locations = ~x+y, 
+  data=buses.df, 
+  nmax=neighbors, 
+  set=list(idp = 2)
+)
+######################
+contour <- interpolate(grd, mg, debug.level=0, index=1)
+######################
+plot(contour)
+contour.mask <- mask(contour, lines.buffer.vec)
+plot(contour.mask)
+```
+
+
+
+
+## Plot Contours
+```{r}
+# import map
+buses.idw.sf <- readRDS("./exports/buses_idw_sf_k1_n1.rds")
+map <- readRDS("./exports/map_stadia_z17.rds")
+lines.sf <- readRDS("./exports/lines_sf.rds")
+
+# plot it
+heatmap_plot <- ggmap(map) +
+  geom_sf(
+    data = buses.idw.sf, 
+    aes(color = voltage),
+    alpha = 1.0,
+    size = 5,
+    shape = 15,
+    inherit.aes = FALSE
+  ) +
+#   geom_sf(
+#     data = lines.sf, 
+#     color="black", 
+#     alpha = 0.05, 
+#     inherit.aes = FALSE
+#   ) +
+  scale_color_gradient2(
+    low = "darkblue",
+    mid = "white",
+    high = "darkred",
+    midpoint = 1,
+    limits = c(0.95, 1.05),
+    space = "Lab",
+    guide = "colourbar",
+    aesthetics = "color",
+    oob = scales::squish
+  ) +
+  theme(
+    legend.position = c(0.96, 0.15),
+    axis.title.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.ticks.y = element_blank(),
+    text = element_text(family = "Serif", size = 18)
+  ) +
+  coord_sf(xlim = c(left, right), ylim = c(bottom, top))
+
+ggsave(
+  filename = "10x/figures/contour_plot_n1_k10.png", 
+  s2plot,
+  width = 6840,
+  height = 6480,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
+```
