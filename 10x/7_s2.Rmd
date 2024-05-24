@@ -147,7 +147,7 @@ s2plot <- ggmap(map) +
 ggsave(
   filename = "10x/figures/s2_plot_r18.png", 
   s2plot,
-  width = 6840,
+  width = 6480,
   height = 6480,
   dpi = 300,
   units = "px",

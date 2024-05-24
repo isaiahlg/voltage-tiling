@@ -30,7 +30,7 @@ lines.buffer <- st_buffer(
     lines.all, 
     endCapStyle = "ROUND", 
     joinStyle = "ROUND",
-    dist = 100
+    dist = 1000,
     # allow_holes = FALSE
     # max_cells = 10000,
 )
@@ -39,7 +39,7 @@ lines.buffer <- st_buffer(
 plot(lines.buffer)
 
 # export the line buffer to RDS
-saveRDS(lines.buffer, "10x/variables/lines_buffer_100m.rds")
+saveRDS(lines.buffer, "10x/variables/lines_buffer_1000m.rds")
 ```
 
 ## Load Voronoi Libraries

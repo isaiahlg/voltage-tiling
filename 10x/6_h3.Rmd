@@ -128,7 +128,7 @@ h3plot <- ggmap(map) +
 ggsave(
   filename = "10x/figures/h3_plot_r12.png", 
   h3plot,
-  width = 6840,
+  width = 6480,
   height = 6480,
   dpi = 300,
   units = "px",
