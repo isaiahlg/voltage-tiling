@@ -69,17 +69,10 @@ rm(buses.sf, buses.df, buses.buffer.vec, ext, grd, neighbors, mg)
 ```{r}  
 # read in data
 contour <- readRDS("10x/variables/contour_n100_rast.rds")
-buses.buffer.vec <- readRDS("10x/variables/buses_buffer_1000m_vec.rds")
-# merge all the polygons into a single one
-buses.buffer.vec <- terra::union(buses.buffer.vec)
-buses
+boundary.sv <- readRDS("10x/variables/boundary_r9_sv.rds")
 
-buses.buffer.vec.simple <- terra::simplifyGeom(buses.buffer.vec, tolerance = 0.1)
-
-buses.buffer.vec
-buses.buffer.vec.simple
 # mask
-contour.mask <- mask(contour, buses.buffer.vec)
+contour.mask <- mask(contour, boundary.sv)
 
 # convert to data.frame
 contour.df <- as.data.frame(contour.mask, xy=TRUE)
@@ -94,7 +87,7 @@ contour.df <- contour.df %>% rename(voltage = idw.pred)
 saveRDS(contour.df, "10x/variables/contour_mask_n10_df.rds")
 # glimpse(contour.df)
 
-rm(contour.mask, contour.df, contour, buses.buffer.vec)
+rm(contour.mask, contour.df, contour, boundary.sv)
 ```
 Rows: 3,553,912
 Columns: 3
@@ -148,7 +141,7 @@ contour_plot <- ggmap(map) +
 )
 
 ggsave(
-  filename = "10x/figures/contour_plot_mask_n10_1000m_filled.png", 
+  filename = "10x/figures/contour_plot_mask_n10_r9.png", 
   contour_plot,
   width = 6480,
   height = 6480,
