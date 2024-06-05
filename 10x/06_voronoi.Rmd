@@ -21,41 +21,6 @@ bottom <- attr(map, "bb")$ll.lat
 top <- attr(map, "bb")$ur.lat
 ```
 
-## Create a Buffer Around Points
-```{r}
-# convert buses to 'SpatVector'
-buses.vec <- terra::vect(buses.sf)
-
-# create a 1000m buffer using terra 
-buses.buffer.vec <- terra::buffer(buses.vec, 1000)
-
-# export bus buffer to RDS
-saveRDS(buses.buffer.vec, "10x/variables/buses_buffer_1000m_vec.rds")
-```
-
-
-## Create Buffer Around Lines
-```{r}
-# merge the lines spatially into a single geometry
-lines.all <- st_union(lines.sf)
-
-# create a 50m buffer around lines.all
-lines.buffer <- st_buffer(
-    lines.all, 
-    endCapStyle = "ROUND", 
-    joinStyle = "ROUND",
-    dist = 1000,
-    # allow_holes = FALSE
-    # max_cells = 10000,
-)
-
-# visualize the line buffer
-plot(lines.buffer)
-
-# export the line buffer to RDS
-saveRDS(lines.buffer, "10x/variables/lines_buffer_1000m.rds")
-```
-
 ## Load Voronoi Libraries
 ```{r}
 library(terra) # for creating voronoi polygons
