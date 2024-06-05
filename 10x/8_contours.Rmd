@@ -9,7 +9,7 @@ library(ggmap)
 
 ## Read in Data
 ```{r}
-# read in RDS
+# read in RDS 
 # lines.sf <- readRDS("10x/variables/lines_sf.rds")
 buses.sf <- readRDS("10x/variables/buses_sf.rds")
 map <- readRDS("10x/variables/map_stadia_z14.rds")
@@ -31,13 +31,10 @@ library(gstat)
 ```{r}
 # load in lines buffer
 buses.sf <- readRDS("10x/variables/buses_sf.rds")
-lines.buffer <- readRDS("10x/variables/lines_buffer_1000m.rds")
+buses.buffer.vec <- readRDS("10x/variables/buses_buffer_1000m_vec.rds")
 
-# Convert the lines buffer to a vector
-lines.buffer.vec <- vect(lines.buffer)
-saveRDS(lines.buffer.vec, "10x/variables/lines_buffer_1000m_vec.rds")
-# get the extent of lines.buffer.vec
-ext <- ext(lines.buffer.vec)
+# get the extent of buses.buffer.vec
+ext <- ext(buses.buffer.vec)
 # create a grid of the same extent
 grd <- rast(ext, res=0.0001)
 
@@ -65,17 +62,24 @@ saveRDS(contour, "10x/variables/contour_n10_rast.rds")
 ######################
 
 # clear out extra variables not needed later
-rm(buses.sf, buses.df, lines.buffer, ext, grd, neighbors, mg)
+rm(buses.sf, buses.df, buses.buffer.vec, ext, grd, neighbors, mg)
 ```
 
-## Prepare Contour for Plotting
+## Prepare Contour for Plotting by Masking
 ```{r}  
 # read in data
-contour <- readRDS("10x/variables/contour_n10_rast.rds")
-lines.buffer.vec <- readRDS("10x/variables/lines_buffer_1000m_vec.rds")
+contour <- readRDS("10x/variables/contour_n100_rast.rds")
+buses.buffer.vec <- readRDS("10x/variables/buses_buffer_1000m_vec.rds")
+# merge all the polygons into a single one
+buses.buffer.vec <- terra::union(buses.buffer.vec)
+buses
 
+buses.buffer.vec.simple <- terra::simplifyGeom(buses.buffer.vec, tolerance = 0.1)
+
+buses.buffer.vec
+buses.buffer.vec.simple
 # mask
-contour.mask <- mask(contour, lines.buffer.vec)
+contour.mask <- mask(contour, buses.buffer.vec)
 
 # convert to data.frame
 contour.df <- as.data.frame(contour.mask, xy=TRUE)
@@ -90,7 +94,7 @@ contour.df <- contour.df %>% rename(voltage = idw.pred)
 saveRDS(contour.df, "10x/variables/contour_mask_n10_df.rds")
 # glimpse(contour.df)
 
-rm(contour.mask, contour.df, contour, lines.buffer.vec)
+rm(contour.mask, contour.df, contour, buses.buffer.vec)
 ```
 Rows: 3,553,912
 Columns: 3
@@ -144,7 +148,7 @@ contour_plot <- ggmap(map) +
 )
 
 ggsave(
-  filename = "10x/figures/contour_plot_mask_n10.png", 
+  filename = "10x/figures/contour_plot_mask_n10_1000m_filled.png", 
   contour_plot,
   width = 6480,
   height = 6480,
