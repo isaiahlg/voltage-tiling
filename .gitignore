@@ -2,3 +2,5 @@
 *.xlsx
 .Rproj.user
 *_matrix.rds
+.env
+10x/variables/buses_buffer_*
