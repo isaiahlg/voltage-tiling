@@ -161,9 +161,9 @@ buses.sf <- readRDS("10x/variables/buses_sf.rds")
 lines.buffer <- readRDS("10x/variables/lines_buffer_100m.rds")
 
 # Convert the lines buffer to a vector
-lines.buffer.vec <- vect(lines.buffer)
-# get the extent of lines.buffer.vec
-ext <- ext(lines.buffer.vec)
+lines.buffer.sv <- vect(lines.buffer)
+# get the extent of lines.buffer.sv
+ext <- ext(lines.buffer.sv)
 # create a grid of the same extent
 grd <- rast(ext, res=0.0001)
 
@@ -190,7 +190,7 @@ contour <- interpolate(grd, mg, debug.level=0, index=1)
 saveRDS(contour, "10x/variables/contour_n1000_rast.rds")
 ######################
 # plot(contour)
-contour.mask <- mask(contour, lines.buffer.vec)
+contour.mask <- mask(contour, lines.buffer.sv)
 saveRDS(contour.mask, "10x/variables/contour_mask_n1000_rast.rds")
 # plot(contour.mask)
 
@@ -198,7 +198,7 @@ saveRDS(contour.mask, "10x/variables/contour_mask_n1000_rast.rds")
 # class(contour) # [1] "SpatRaster", attr(,"package"), [1] "terra"
 
 # clear out extra variables not needed later
-rm(buses.sf, buses.df, lines.buffer, lines.buffer.vec, ext, grd, neighbors, mg)
+rm(buses.sf, buses.df, lines.buffer, lines.buffer.sv, ext, grd, neighbors, mg)
 ```
 
 ## Prepare Contour for Plotting
