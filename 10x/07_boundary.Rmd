@@ -5,6 +5,7 @@ library(sf)
 library(ggmap)
 library(terra)
 library(h3jsr)
+library(concaveman)
 ```
 
 ## Read in Data
@@ -27,31 +28,68 @@ top <- attr(map, "bb")$ur.lat
 buses.h3 <- readRDS("10x/variables/buses_h3_r8to12.rds")
 
 # keep just resolution 9 hexes
-buses.h3 <- buses.h3 %>% filter(res == 8) 
+buses.h3 <- buses.h3 %>% filter(res == 9) 
 
 boundary <- cells_to_multipolygon(h3_addresses = buses.h3$h3, simple = TRUE)
 plot(boundary)
 
 # convert to SpatVector
-boundary.vec <- terra::vect(boundary)
+boundary.sv <- terra::vect(boundary)
 
 # export boundary to RDS
-saveRDS(boundary.vec, "10x/variables/boundary_r8_sv.rds")
+saveRDS(boundary.sv, "10x/variables/boundary_r10_sv.rds")
+```
+
+## Convex Hull
+```{r}
+# convert buses.sf to 'SpatVector'
+buses.sv <- terra::vect(buses.sf)
+saveRDS(buses.sv, "10x/variables/buses_sv.rds")
+
+# create a convex hull around the buses
+bus.convex.hull <- convHull(buses.sv, by="")
+
+plot(bus.convex.hull)
+# export
+saveRDS(bus.convex.hull, "10x/variables/buses_convex_hull.rds")
+```
+
+## Concave Hull
+```{r}
+# create a concave hull around the buses
+bus.concave.c1 <- concaveman(buses.sf, concavity = 1)
+bus.concave.c2 <- concaveman(buses.sf, concavity = 2)
+bus.concave.c3 <- concaveman(buses.sf, concavity = 3)
+bus.concave.c4 <- concaveman(buses.sf, concavity = 4)
+
+plot(bus.concave.c1) # too detailed
+plot(bus.concave.c2) # good
+plot(bus.concave.c3) # decent, 
+plot(bus.concave.c4) # too simple
+
+# export 2 and 3
+# convert to SpatVector
+bus.concave.c1.sv <- terra::vect(bus.concave.c1)
+bus.concave.c2.sv <- terra::vect(bus.concave.c2)
+bus.concave.c3.sv <- terra::vect(bus.concave.c3)
+saveRDS(bus.concave.c1.sv, "10x/variables/buses_concave_c1_sv.rds")
+saveRDS(bus.concave.c2.sv, "10x/variables/buses_concave_c2_sv.rds")
+saveRDS(bus.concave.c3.sv, "10x/variables/buses_concave_c3_sv.rds")
 ```
 
 
-
+# Other Methods with Buffering
 
 ## Create a Buffer Around Points
 ```{r}
 # convert buses to 'SpatVector'
-buses.vec <- terra::vect(buses.sf)
+buses.sv <- terra::vect(buses.sf)
 
 # create a 1000m buffer using terra 
-buses.buffer.vec <- terra::buffer(buses.vec, 1000)
+buses.buffer.sv <- terra::buffer(buses.sv, 1000)
 
 # export bus buffer to RDS
-saveRDS(buses.buffer.vec, "10x/variables/buses_buffer_1000m_vec.rds")
+saveRDS(buses.buffer.sv, "10x/variables/buses_buffer_1000m_vec.rds")
 ```
 
 

@@ -31,10 +31,10 @@ library(gstat)
 ```{r}
 # load in lines buffer
 buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.buffer.vec <- readRDS("10x/variables/buses_buffer_1000m_vec.rds")
+buses.buffer.sv <- readRDS("10x/variables/buses_buffer_1000m_vec.rds")
 
-# get the extent of buses.buffer.vec
-ext <- ext(buses.buffer.vec)
+# get the extent of buses.buffer.sv
+ext <- ext(buses.buffer.sv)
 # create a grid of the same extent
 grd <- rast(ext, res=0.0001)
 
@@ -62,14 +62,14 @@ saveRDS(contour, "10x/variables/contour_n10_rast.rds")
 ######################
 
 # clear out extra variables not needed later
-rm(buses.sf, buses.df, buses.buffer.vec, ext, grd, neighbors, mg)
+rm(buses.sf, buses.df, buses.buffer.sv, ext, grd, neighbors, mg)
 ```
 
 ## Prepare Contour for Plotting by Masking
 ```{r}  
 # read in data
 contour <- readRDS("10x/variables/contour_n100_rast.rds")
-boundary.sv <- readRDS("10x/variables/boundary_r9_sv.rds")
+boundary.sv <- readRDS("10x/variables/buses_concave_c1_sv.rds")
 
 # mask
 contour.mask <- mask(contour, boundary.sv)
@@ -141,7 +141,7 @@ contour_plot <- ggmap(map) +
 )
 
 ggsave(
-  filename = "10x/figures/contour_plot_mask_n10_r9.png", 
+  filename = "10x/figures/contour_plot_mask_n10_concave_c1.png", 
   contour_plot,
   width = 6480,
   height = 6480,
