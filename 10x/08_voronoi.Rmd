@@ -68,6 +68,9 @@ voronoi.sf <- sf::st_as_sf(voronoi.mask)
 # set projection of sf to ESPG:4326
 voronoi.sf <- sf::st_set_crs(voronoi.sf, 4326)
 
+# reexport voronoi.sf
+saveRDS(voronoi.sf, "10x/variables/voronoi_sf.rds")
+
 # calculate the area of each polygon in voronoi.sf into a column area
 # voronoi.sf <- voronoi.sf %>% mutate(area = drop_units(st_area(geometry)))
 
@@ -88,12 +91,12 @@ voronoi_plot <- ggmap(map) +
     alpha = 1.0,
     inherit.aes = FALSE
   ) +
-  # geom_sf(
-  #   data = lines.sf, 
-  #   color="black", 
-  #   alpha = 0.1, 
-  #   inherit.aes = FALSE
-  # ) +
+  geom_sf(
+    data = lines.sf, 
+    color="black", 
+    alpha = 0.2, 
+    inherit.aes = FALSE
+  ) +
   scale_fill_gradient2(
     low = "darkblue",
     mid = "white",
@@ -129,7 +132,7 @@ voronoi_plot <- ggmap(map) +
   coord_sf(xlim = c(left, right), ylim = c(bottom, top))
 
 ggsave(
-  filename = "10x/figures/voronoi_plot_mask.png", 
+  filename = "10x/figures/voronoi_plot_mask_w_lines.png", 
   voronoi_plot,
   width = 6480,
   height = 6480,

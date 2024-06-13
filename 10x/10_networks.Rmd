@@ -5,12 +5,14 @@
 library(tidyverse)
 library(sf)
 library(ggmap)
+library(tidygraph)
+library(igraph)
 ```
 
 ## Read in Data
 ```{r}
 # read in RDS
-# lines.sf <- readRDS("10x/variables/lines_sf.rds")
+lines.sf <- readRDS("10x/variables/lines_sf.rds")
 buses.sf <- readRDS("10x/variables/buses_sf.rds")
 map <- readRDS("10x/variables/map_stadia_z14.rds")
 
@@ -23,25 +25,80 @@ top <- attr(map, "bb")$ur.lat
 
 
 # Conduct Network Analysis
-
-
-################################### TODO ###################################
-- Convert buses and lines from the 10x data into a network
 - Calculate the distance matrix for the network --- yikes this might be too big
 - Recalculate the voltages at each node
-
-## Build the Network
+## Inspect the Input Data
 ```{r}
-library(tidygraph)
-
-# reimport
+# reread in the data
 lines.sf <- readRDS("10x/variables/lines_sf.rds")
 buses.sf <- readRDS("10x/variables/buses_sf.rds")
 
+# inspect the data
+glimpse(buses.sf)
+glimpse(lines.sf)
+
+# look at values in lines.sf$name
+lines.sf$name %>% unique()
+```
+
+> glimpse(buses.sf)
+Rows: 295,430
+Columns: 5
+$ name     <chr> "p13udm3166", "p13udm3168", "p13udm3169", "p13udm3170", "p13u…
+$ voltage  <dbl> 0.9789937, 0.9798307, 0.9802534, 0.9706192, 0.9719708, 0.9730…
+$ lng      <dbl> -122.2683, -122.2682, -122.2679, -122.2690, -122.2701, -122.2…
+$ lat      <dbl> 37.86478, 37.86447, 37.86484, 37.86560, 37.86579, 37.86551, 3…
+$ geometry <POINT [°]> POINT (-122.2683 37.86478), POINT (-122.2682 37.86447),…
+> glimpse(lines.sf)
+Rows: 295,672
+Columns: 11
+$ is_switch   <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+$ is_open     <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+$ is_fuse     <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+$ kva         <dbl> 7, 10, 8, 10, 8, 8, 6, 10, 10, 8, 10, 8, 8, 6, 10, 8, 10, …
+$ type        <fct> Transformer, Transformer, Transformer, Transformer, Transf…
+$ length..km. <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+$ ampacity    <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
+$ name        <chr> "tr(r:p13udt769-p13udt769lv)", "tr(r:p13udt770-p13udt770lv…
+$ kvs         <list> <"12.47", "0.48">, <"7.2", "0.12">, <"7.2", "0.12">, <"7.…
+$ phases      <list> <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <…
+$ geometry    <POINT [°]> POINT (-122.2682 37.86477), POINT (-122.2691 37.8655…
+> 
+
+## Clean Up the Lines.SF and Buses.SF Data
+```{r}
+# create a unique numeric id for each bus
+buses.sf <- buses.sf %>% mutate(id = as.numeric(factor(name)))
+
+# create a unique numeric id for each line
+lines.sf <- lines.sf %>% mutate(id = as.numeric(factor(name)))
+
+# line names look like: "l(r:p13udm85893-p13udt22349lv)"
+# the from bus is "p13udm85893" and the to bus is "p13udt22349lv"
+# extract the from and to bus names from this string with regex
+lines.sf$from_bus <- str_extract(lines.sf$name, "(?<=:)\\w+")
+lines.sf$to_bus <- str_extract(lines.sf$name, "(?<=-)\\w+")
+glimpse(lines.sf)
+
+# now pull in the bus id for the from and to bus from buses.sf
+lines.sf$from <- buses.sf$id[match(lines.sf$from_bus, buses.sf$name)]
+lines.sf$to <- buses.sf$id[match(lines.sf$to_bus, buses.sf$name)]
+
+# check for any empty lines$from or lines.sf$to
+lines.sf.filt <- lines.sf %>%
+  filter(!is.na(from) & !is.na(to))
+
+# filter out any buses that are not to or from a line
+buses.sf.filt <- buses.sf %>%
+  filter(id %in% c(lines.sf.filt$from, lines.sf.filt$to))
+```
+
+## Build the Network
+```{r}
 # ensure all edges have a node
-graph <- tbl_graph(
+graph <- tidygraph::tbl_graph(
   nodes = buses.sf,
-  edges = tibble(lines.sf),
+  edges = tibble(lines.sf.filt),
   directed = FALSE
 )
 saveRDS(graph, "10x/variables/graph.rds")
@@ -57,12 +114,26 @@ graph <- graph %>%
   activate(nodes) %>%
   mutate(component = components(graph)$membership)
 
+graph
+max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
+
 # plot components by color
-ggplot() +
-  geom_sf(data = graph %>% activate(edges) %>% as_tibble() %>% st_as_sf(), color = "gray") +
-  geom_sf(data = graph %>% activate(nodes) %>% as_tibble() %>% st_as_sf(), size = 0.5, aes(color = component)) +
-  scale_color_gradientn(colors = rainbow(1458)) +
-  theme_bw()
+# network_component_plot <- ggplot() +
+#   geom_sf(data = graph %>% activate(edges) %>% as_tibble() %>% st_as_sf(), color = "gray") +
+#   geom_sf(data = graph %>% activate(nodes) %>% as_tibble() %>% st_as_sf(), size = 0.5, aes(color = component)) +
+#   scale_color_gradientn(colors = rainbow(1458)) +
+#   theme_bw()
+
+# ggsave(
+#   filename = "10x/figures/network_component_plot.png", 
+#   network_component_plot,
+#   width = 6480,
+#   height = 6480,
+#   dpi = 300,
+#   units = "px",
+#   device = "png",
+#   limitsize = FALSE
+# )
 ```
 
 ## Force Directed Network Layout FR
