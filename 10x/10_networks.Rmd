@@ -38,7 +38,7 @@ glimpse(buses.sf)
 glimpse(lines.sf)
 
 # look at values in lines.sf$name
-lines.sf$name %>% unique()
+# lines.sf$name %>% unique()
 ```
 
 > glimpse(buses.sf)
@@ -114,27 +114,75 @@ graph <- graph %>%
   activate(nodes) %>%
   mutate(component = components(graph)$membership)
 
+# add a column that counts the number of nodes in each component
+graph <- graph %>%
+  group_by(component) %>%
+  mutate(n = n()) %>%
+  ungroup()
+
+
 graph
 max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
 
-# plot components by color
-# network_component_plot <- ggplot() +
-#   geom_sf(data = graph %>% activate(edges) %>% as_tibble() %>% st_as_sf(), color = "gray") +
-#   geom_sf(data = graph %>% activate(nodes) %>% as_tibble() %>% st_as_sf(), size = 0.5, aes(color = component)) +
-#   scale_color_gradientn(colors = rainbow(1458)) +
-#   theme_bw()
+# count unique values of number of nodes in each component
+graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
 
-# ggsave(
-#   filename = "10x/figures/network_component_plot.png", 
-#   network_component_plot,
-#   width = 6480,
-#   height = 6480,
-#   dpi = 300,
-#   units = "px",
-#   device = "png",
-#   limitsize = FALSE
-# )
+# show me a histogram of the number of nodes in each component
+# use log scale
+graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% ggplot(aes(x = n)) + geom_histogram(binwidth = 1) + scale_y_log10()
+
+
+# add the "component" and "n" columns to buses.sf
+buses.sf <- buses.sf %>%
+  left_join(graph %>% activate(nodes) %>% as_tibble() %>% select(name, component, n), by = c("name" = "name"))
+
+glimpse(buses.sf)
+
+# keep just buses where n > 1
+buses.sf.filt <- buses.sf %>%
+  filter(n > 1000)
+
+# plot the buses
+buses.sf %>%
+  ggplot() +
+  geom_sf(aes(color = as.factor(component), size = 0.1)) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
 ```
+Without Capacitors: 46642 components
+With Capacitors: 46820 components
+Number of Capacitors: 178 > they don't join up the network, it's a parsing problem
+
+> graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
+Storing counts in `nn`, as `n` already present in input
+ℹ Use `name = "new_name"` to pick a new name.
+# A tibble: 23 × 2
+        n    nn
+    <int> <int>
+ 1      1 46600
+ 2      2    15
+ 3      3     2
+ 4      4     3
+ 5      5     1
+ 6      6     3
+ 7      7     1
+ 8      8     2
+ 9      9     1
+10     18     1
+11     35     1
+12     44     1
+13    220     1
+14    456     1
+15   1644     1
+16   2042     1
+17   3721     1
+18   3931     1
+19   6155     1
+20   6316     1
+21   6715     1
+22  31875     1
+23 185555     1
 
 ## Force Directed Network Layout FR
 ```{r}
