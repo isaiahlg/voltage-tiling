@@ -20,6 +20,7 @@ p13u <- st_read(
 p13u_sf <- p13u
 glimpse(p13u_sf)
 
+
 # convert type column to factor
 p13u_sf <- p13u_sf %>%
     mutate(
