@@ -140,22 +140,33 @@ buses.sf <- readRDS("10x/variables/buses_sf.rds")
 graph <- readRDS("10x/variables/graph.rds")
 
 # add the "component" and "n" columns to buses.sf
-buses.sf <- buses.sf %>%
-  left_join(graph %>% activate(nodes) %>% as_tibble() %>% select(name, component, n), by = c("name" = "name"))
+# buses.sf <- buses.sf %>%
+#   left_join(graph %>% activate(nodes) %>% as_tibble() %>% select(name, component, n), by = c("name" = "name"))
 
-saveRDS(buses.sf, "10x/variables/buses_sf.rds")
+# saveRDS(buses.sf, "10x/variables/buses_sf.rds")
 
 # keep just buses where n > 1
 buses.sf.filt <- buses.sf %>%
-  filter(n > 10000)
+  filter(n > 1000)
+
 
 # plot the buses
-buses.sf.filt %>%
+component_plot <- buses.sf.filt %>%
   ggplot() +
-  geom_sf(aes(color = as.factor(component), size = 0.1)) +
-  theme_minimal() +
-  theme(legend.position = "none")
+  geom_sf(aes(color = as.factor(component)), size = 0.5) +
+  theme_bw() 
+  # theme(legend.position = "none")
 
+ggsave(
+  filename = "10x/figures/component_plot_2.png", 
+  component_plot,
+  width = 12960,
+  height = 12960,
+  dpi = 300,
+  units = "px",
+  device = "png",
+  limitsize = FALSE
+)
 ```
 Without Capacitors: 46642 components
 With Capacitors: 46820 components
@@ -190,6 +201,34 @@ Storing counts in `nn`, as `n` already present in input
 21   6715     1
 22  31875     1
 23 185555     1
+
+    nodes      number
+      per          of
+component  components
+
+      1       46600
+      2          15
+      3           2
+      4           3
+      5           1
+      6           3
+      7           1
+      8           2
+      9           1
+     18           1
+     35           1
+     44           1
+    220           1
+    456           1
+   1644           1
+   2042           1
+   3721           1
+   3931           1
+   6155           1
+   6316           1
+   6715           1
+  31875           1
+ 185555           1
 
 ## Inspect Buses in Each Component
 ```{r}
