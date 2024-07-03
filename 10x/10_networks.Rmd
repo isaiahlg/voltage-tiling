@@ -120,30 +120,37 @@ graph <- graph %>%
   mutate(n = n()) %>%
   ungroup()
 
+# inspect things
+# graph
+# max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
 
-graph
-max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
+# # count unique values of number of nodes in each component
+# graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
 
-# count unique values of number of nodes in each component
-graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
+# # show me a histogram of the number of nodes in each component
+# # use log scale
+# graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% ggplot(aes(x = n)) + geom_histogram(binwidth = 1) + scale_y_log10()
+ 
+saveRDS(graph, "10x/variables/graph.rds")
+```
 
-# show me a histogram of the number of nodes in each component
-# use log scale
-graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% ggplot(aes(x = n)) + geom_histogram(binwidth = 1) + scale_y_log10()
-
+## Join with Buses.SF and Plot
+```{r}
+buses.sf <- readRDS("10x/variables/buses_sf.rds")
+graph <- readRDS("10x/variables/graph.rds")
 
 # add the "component" and "n" columns to buses.sf
 buses.sf <- buses.sf %>%
   left_join(graph %>% activate(nodes) %>% as_tibble() %>% select(name, component, n), by = c("name" = "name"))
 
-glimpse(buses.sf)
+saveRDS(buses.sf, "10x/variables/buses_sf.rds")
 
 # keep just buses where n > 1
 buses.sf.filt <- buses.sf %>%
-  filter(n > 1000)
+  filter(n > 10000)
 
 # plot the buses
-buses.sf %>%
+buses.sf.filt %>%
   ggplot() +
   geom_sf(aes(color = as.factor(component), size = 0.1)) +
   theme_minimal() +
@@ -183,6 +190,240 @@ Storing counts in `nn`, as `n` already present in input
 21   6715     1
 22  31875     1
 23 185555     1
+
+## Inspect Buses in Each Component
+```{r}
+# read in data
+buses.sf <- readRDS("10x/variables/buses_sf.rds")
+
+# look at the first 10 bus names from the group n = 185555
+buses.sf %>%
+  filter(n == 185555) %>%
+  select(name) %>%
+  tail(10)
+# p13udm3166
+# p13udt5017-p13udt5023x
+# p13udt23087-p13uhs9_1247x
+
+# look at the first 10 bus names from the group n = 31875
+buses.sf %>%
+  filter(n == 31875) %>%
+  # select(name) %>%
+  head()
+# p13udm55801
+# p13udt1255-p13udt6473xxx
+# p13udt23781-p13udt25361x
+
+buses.sf %>%
+  st_drop_geometry() %>%
+  filter(n == 1) %>%
+  select(name) %>%
+  # head()
+  tail()
+# p13ulv119132
+# p13ulv119150
+# p13udt1225-p13udt1226x
+# p13udt24054-p13udt3947x **
+# p13udt24056-p13udt24058x
+# p13udt24286-p13udt5025x
+# p13udt24296-p13udt5024xxx
+# p13udt24292-p13udt5010xxx
+
+
+
+# look for the string contained within in lines.sf$name
+lines.sf %>%
+  filter(str_detect(name, "p13udt24054-p13udt3947")) %>% 
+  mutate(geometry2 = st_as_text(geometry)) %>%
+  st_drop_geometry() %>%
+  select(geometry2)
+  # show the full string value
+
+
+
+#   kva   type length..km. ampacity                                           name kvs phases                        geometry   geometry2
+# 1  NA   Line      127138        3                    l(r:p13udt24054-p13udt3947)          A  LINESTRING (-122.2188 37.80...   LINESTRING (-122.2188 37.80784, -122.2188 37.80793, -122.2187 37.80796, -122.2186 37.808, -122.2185 37.80804, -122.2184 37.80796, -122.2184 37.80787, -122.2184 37.8079)
+# 2  NA Switch           1        3 padswitch(r:p13udt24054-p13udt3947)p13u_162677          A  LINESTRING (-122.2188 37.80...   LINESTRING (-122.2188 37.80786, -122.2188 37.80784)
+# 3  NA Switch           1        3 padswitch(r:p13udt24054-p13udt3947)p13u_162678          A  LINESTRING (-122.2184 37.80...   LINESTRING (-122.2184 37.8079, -122.2184 37.80787)
+# 4  NA   Fuse           1       10      fuse(r:p13udt24054-p13udt3947)p13u_193012          A  LINESTRING (-122.2189 37.80...   LINESTRING (-122.2189 37.80789, -122.2188 37.80786)
+
+# I looked in loads and capacitors and pvsystems and storage and none of the names have the underscores
+# I'm not sure what the third component is for but I don't think it's important
+
+  
+# look for the string contained within in buses.sf$name
+buses.sf %>%
+  filter(str_detect(name, "p13udt100")) %>%
+  filter(name == "p13udt100") %>%
+  print(n=Inf)
+# #                      name   voltage       lng      lat component      n                    geometry
+# 1  p13udt24054-p13udt3947xx 0.9635021 -122.2188 37.80784         1 185555  POINT (-122.2188 37.80784)
+# 2 p13udt24054-p13udt3947xxx 0.9632959 -122.2184 37.80790         1 185555  POINT (-122.2184 37.80790) # 35.77m apart
+# 3   p13udt24054-p13udt3947x 0.9635021 -122.2188 37.80786     46638      1  POINT (-122.2188 37.80786) # 2.224m apart
+
+# Types of Names of Buses
+# p13udm3166 > distribution main, at medium voltage
+# p13udt769 > distribution transformer
+# p13udt769lv > distribution transformer low voltage
+# p13ulv28878 > low voltage, regular bus at low voltage
+# p13udt13213-p13udt13214xx > not sure why there are multiple with x's
+# p13udt13213-p13udt13214xxx
+
+# Group of Buses
+# p13udt100
+# p13udt100-p13udt224x
+# p13udt100-p13udt224xx
+# p13udt100-p13udt232x
+# p13udt100-p13udt232xx
+# p13udt100-p13udt315x
+# p13udt100-p13udt315xx
+# p13udt100-p13udt315xxx
+
+# rownu,name,                 volt,  lng,      lat,    comp,n,  geometry,
+# 52286,p13udt100,            0.9657,-122.2672,37.8968,1,185555,[object Object],
+# 56360,p13udt100-p13udt224x, 0.9657,-122.2672,37.8967,1,185555,[object Object],
+# 56361,p13udt100-p13udt224xx,0.9657,-122.2677,37.8972,2,31875, [object Object],
+# 56364,p13udt100-p13udt232x, 0.9657,-122.2672,37.8968,1,185555,[object Object],
+# 56365,p13udt100-p13udt232xx,0.9656,-122.2669,37.8970,1,185555,[object Object],
+# 56367,p13udt100-p13udt315x, 0.9657,-122.2673,37.8968,1,185555,[object Object],
+# 56366,p13udt100-p13udt315xx,0.9657,-122.2673,37.8965,1,185555,[object Object],
+
+# Abbreviations
+# p13u > this stands for this region
+# dm > distribution main
+# dt > distribution transformer
+# lv > low voltage
+
+
+```
+### What Am I Seeing
+A given bus name, such as "p13udt24292-p13udt5010" actually corresponds to three buses:
+1. p13udt24292-p13udt5010xxx
+2. p13udt24292-p13udt5010xx
+3. p13udt24292-p13udt5010x
+There is no bus without the x at all. THey have ever so slightly different locations. But if you search in the lines for the string without an x, you get:
+1. A line that matches the name with no x
+2. 2 pad switches
+3. 1 fuse 
+
+Search for each of these buses....check their lat long
+
+## Inspect Lines
+```{r}
+lines.sf <- readRDS("10x/variables/lines_sf.rds")
+# look at the first 10 line names
+lines.sf %>%
+  head(10)
+
+lines.sf %>% 
+  tail(10)
+
+# show the unique values of type and count of rows per type
+lines.sf %>%
+  st_drop_geometry() %>%
+  count(type)
+
+# if is_fuse is TRUE, then type should be "Fuse"
+lines.sf <- lines.sf %>%
+  mutate(type = if_else(!is.na(is_fuse), if_else(is_fuse, "Fuse", type), type))
+
+# if is_switch is TRUE, then type should be "Switch"
+lines.sf <- lines.sf %>%
+  mutate(type = if_else(!is.na(is_switch), if_else(is_switch, "Switch", type), type))
+
+# drop the is_ columns
+lines.sf <- lines.sf %>%
+  select(-is_fuse, -is_switch, -is_open)
+
+lines.sf
+
+# export the cleaned lines.sf
+saveRDS(lines.sf, "10x/variables/lines_clean_sf.rds")
+
+# inspect the head and tail for each type of line
+lines.sf %>%
+  filter(type == "Fuse") %>%
+  # head()
+  tail()
+# name: fuse(r:p13udt24286-p13udt5025)p13u_193047
+# name bottom: fuse(r:p13udt1265-p13udt25344)p13u_193198
+# count = 4462
+
+lines.sf %>%
+  filter(type == "Transformer") %>%
+  # head()
+  tail()
+# name: tr(r:p13udt769-p13udt769lv)
+# name bottom: tr(r:p13udt25654-p13udt25654lv)
+# count = 33673
+
+lines.sf %>%
+  filter(type == "Switch") %>%
+  # head()
+  tail()
+# name top: padswitch(r:p13udt13213-p13udt13214)p13u_148879
+# name mid: elbswitch(r:p13udt1581-p13udt25367)p13u_189485
+# name bottom: goab_disswitch(r:p13udt11540-p13udt5011)p13u_195047
+# count = 41659
+
+lines.sf %>%
+  filter(type == "Line") %>%
+  # head()
+  tail()
+# name top: l(r:p13udt770lv-p13ulv38995)
+# name mid: l(r:p13udm3170-p13udt770lv) 
+# name mid2: l(r:p13udt23780-p13udt23786)
+# name bottom: l(r:p13udm86924-p13udt22795lv)
+# count = 215878
+
+# Total of 4 types: Fuse, Transformer, Switch, Line
+# Fuse: 4462
+# Transformer: 33673
+# Switch: 41659
+# Line: 215878
+# Sum: 295672
+# Total Values: 295672
+# Difference: 0
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Force Directed Network Layout FR
 ```{r}
