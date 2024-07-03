@@ -78,6 +78,30 @@ $type
 # read in RDS
 p13u <- readRDS("10x/variables/p13u_sf.rds")
 
+# look at the names of the type "Load"
+p13u %>%
+    filter(type == "Storage") %>%
+    select(name) %>%
+    head()
+# Loads
+#   load_p13ulv2240
+#   load_p13ulv86673
+#   129330 loads
+# Capacitors
+#   p13uc0
+#   p13uc48
+#   count 178
+# PVSystem
+#   pv_load_p13ulv43357
+#   pv_load_p13ulv68747
+#   110023
+# Storage
+#   storage_p13ulv43357
+#   storage_p13ulv11021
+#   51621
+
+
+
 # create lines.sf
 lines.sf <- p13u %>%
     filter(type == "Line" | type == "Transformer")
