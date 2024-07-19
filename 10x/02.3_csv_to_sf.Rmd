@@ -1,0 +1,42 @@
+# Convert CSV files to SF Objects
+
+## Load Libraries
+```{r}
+library(tidyverse)
+library(sf)
+```
+
+## Define Global Variables
+```{r}
+# define the path to the dss files
+dss_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries"
+csv_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries_csv"
+var_path <- "10x/variablesdss"
+regions <- list.dirs(csv_path, full.names = FALSE, recursive = FALSE)
+```
+
+## Create Sub Directories
+```{r}
+# create the data export directory if it doesn't exist
+dir.create(var_path, showWarnings = FALSE)
+```
+
+## Convert the Buses to Spatial Data Frames
+```{r}
+# read in buses and lines.df
+buses.df <- read.csv(paste(csv_path, "buses_df.csv", sep = "/"), header = TRUE, sep = ",")
+
+# convert buses.df to a sf object
+buses.sf <- st_as_sf(buses.df, coords = c("lng", "lat"), crs = 4326)
+buses.sf$region <- as.factor(buses.sf$region)
+glimpse(buses.sf)
+
+# export buses sf as RDS
+saveRDS(buses.sf, paste(csv_path, "buses_sf.rds", sep = "/"))
+
+# make a P13U version
+buses.p13u.sf <- buses.sf %>% filter(region == "P13U") %>% select(-region) 
+saveRDS(buses.p13u.sf, paste(csv_path, "P13U", "buses_sf.rds", sep = "/"))
+```
+
+## Match Lines & Transformers to Buses
