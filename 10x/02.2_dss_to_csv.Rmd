@@ -1,0 +1,223 @@
+# Convert GeoJSON files into SF Objects
+
+## Load Libraries
+```{r}
+library(tidyverse)
+library(sf)
+library(stringr)
+```
+
+## Define Global Variables
+```{r}
+# define the path to the dss files
+dss_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries"
+data_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries_csv"
+regions <- list.dirs(dss_path, full.names = FALSE, recursive = FALSE)
+```
+
+## Create Sub Directories
+```{r}
+# create the data export directory if it doesn't exist
+dir.create(data_path, showWarnings = FALSE)
+# create a subdirectory for the region if it doesn't exist
+for (region in regions) {
+    dir.create(paste(data_path, region, sep = "/"), showWarnings = FALSE)
+}
+```
+
+## Open Voltage DSS Files
+```{r}
+bus_dss_to_df <- function(region, dss_path, data_path) { 
+   
+    # read in all of the bus coordinates
+    buscoords <- read.table(paste(dss_path, region, "Buscoords.dss", sep = "/"), header = FALSE, sep = " ")
+    colnames(buscoords) <- c("bus", "lng", "lat")
+
+    # read in the bus voltages
+    busvoltages <- read.csv(paste(dss_path, region, "analysis/peak_voltages.csv", sep = "/"), header = TRUE, sep = ",")
+    colnames(busvoltages) <- c("voltage", "bus")
+
+    # merge the buscoords with the busvoltages by the bus name
+    # note that this drops any buses that don't have a voltage
+    buses.df <- merge(buscoords, busvoltages, by = "bus")
+    rm(buscoords, busvoltages)
+
+    # count 0 voltages
+    sum(buses.df$voltage == 0)
+    # handle 0 voltages to either mean or 1 if desired
+    # hist(buses.df$voltage)
+
+    # keep just 6 decimal places of lng and lat
+    buses.df$lng <- round(buses.df$lng, 6)
+    buses.df$lat <- round(buses.df$lat, 6)
+    buses.df$voltage <- round(buses.df$voltage, 4)
+
+    return(buses.df)
+}
+
+for (region in regions) {
+    print(paste("Processing region: ", region))
+    buses.df <- bus_dss_to_df(region, dss_path, data_path)
+    # export buses.df into an RDS and CSV object in the exports folder
+    # saveRDS(buses.df, paste(data_path, region, "buses_df.rds", sep = "/"))
+    write.csv(buses.df, paste(data_path, region, "buses_df.csv", sep = "/"), row.names = FALSE)
+}
+```
+
+## Open and Parse Lines DSS Files
+```{r}
+lines_dss_to_df <- function(dss_path, data_path, region) {
+    # get all subdirectories in the region
+    feeders <- list.dirs(paste(dss_path, region, sep = "/"), full.names = FALSE, recursive = TRUE)
+    # remove any elements that match "analysis"
+    feeders <- feeders[!grepl("analysis", feeders)]
+    # remove the first element
+    feeders <- feeders[-1]
+    lines.df <- data.frame()
+    for (feeder in feeders) {
+        feeder.lines.df <- get_feeder_lines(dss_path, region, feeder)
+        lines.df <- rbind(lines.df, feeder.lines.df)
+    }
+
+    return(lines.df)
+}
+
+get_feeder_lines <- function(dss_path, region, feeder) { 
+    linesdss <- read.table(paste(dss_path, region, feeder, "Lines.dss", sep = "/"), header = FALSE, sep = "\n")
+
+    # remove any lines that contain "Fuse"
+    linesdss <- linesdss %>% filter(!grepl("Fuse", V1))
+
+    # separate the character strings into columns by the spaces
+    lines.df <- linesdss %>% separate(V1, into = c(
+        "new", 
+        "line", 
+        "units", 
+        "length", 
+        "bus1", 
+        "bus2", 
+        "switch", 
+        "enabled", 
+        "phases", 
+        "linecode"
+    ), sep = " ")
+
+    # count rows iwth any any
+    # sum(is.na(lines.df))
+    # remove any rows that contain any NAs
+    # lines.df <- lines.df %>% drop_na()
+
+    # drop the columns new, length, units, switch, enabled, phases, linecode
+    lines.df <- lines.df %>% select(-new, -length, -units, -switch, -enabled, -phases, -linecode)
+
+    # remove the prefix "bus1=" and "bus2=" from the bus1 and bus2 columns
+    lines.df$bus1 <- gsub("bus1=", "", lines.df$bus1)
+    lines.df$bus2 <- gsub("bus2=", "", lines.df$bus2)
+
+    # remove the characters after the first "." in the columns bus1 and bus2
+    # lines.df$bus1 <- gsub("\\..*", "", lines.df$bus1)
+    # lines.df$bus2 <- gsub("\\..*", "", lines.df$bus2)
+
+    # ensure every bus in bus1 and bus2 is in buses.df and remove any that are not # 5 removed
+    # lines.df <- lines.df %>% filter(bus1 %in% buses.df$bus) %>% filter(bus2 %in% buses.df$bus)
+
+    # remove any duplicate lines based on bus1 and bus2
+    # lines.df <- lines.df %>% distinct(bus1, bus2, .keep_all = TRUE)
+    return(lines.df)
+}
+
+for (region in regions) {
+    print(paste("Processing region: ", region))
+    lines.df <- lines_dss_to_df(dss_path, data_path, region)
+    # create a subdirectory for the region if it doesn't exist
+    dir.create(paste(data_path, region, sep = "/"), showWarnings = FALSE)
+    # export buses.df into an RDS and CSV object in the exports folder
+    # saveRDS(lines.df, paste(data_path, region, "lines_df.rds"))
+    write.csv(lines.df, paste(data_path, region, "lines_df.csv", sep = "/"), row.names = FALSE)
+}
+```
+
+## Read in Transformers
+
+```{r}
+tx_dss_to_df <- function(region, dss_path, data_path) {
+    # get all subdirectories in the region
+    feeders <- list.dirs(paste(dss_path, region, sep = "/"), full.names = FALSE, recursive = TRUE)
+    # remove first balnk element
+    feeders <- feeders[-1]
+    # remove any elements that match "analysis"
+    feeders <- feeders[!grepl("analysis", feeders)]
+    # remove any elements that match "subtransmission"
+    feeders <- feeders[!grepl("subtransmission", feeders)] 
+    ## todo may need to come back for these, they have different (additional) column headers
+    ## todo they seem to match the column headers from tiling.Rmd in case I need to come back
+    tx.df <- data.frame()
+    for (feeder in feeders) {
+        feeder.tx.df <- get_feeder_tx(region, feeder, dss_path)
+        # continue if feeder.tx.df is NULL
+        if (is.null(feeder.tx.df)) {
+            next
+        }
+        tx.df <- rbind(tx.df, feeder.tx.df)
+    }
+
+    return(tx.df)
+}
+
+get_feeder_tx <- function(region, feeder, dss_path) {
+    # Read in all of the tx
+    txdss <- tryCatch({
+        read.table(file = paste(dss_path, region, feeder, "Transformers.dss", sep = "/"), header = FALSE, sep = "\n")
+    }, warning = function(w) {
+        warning("Warning: The file does not exist. Skipping.")
+        return(NULL)
+    }, error = function(e) {
+        warning("Error: The file does not exist. Skipping.")
+        return(NULL)
+    })
+
+    if (is.null(txdss)) {
+        return(NULL)
+    }
+
+    # Extract the name of the transformer from each row in the table
+    txdss <- txdss %>%
+        mutate(
+            bus1 = sub(".*bus=([^ ]+) .*", "\\1", V1),
+            bus2 = sub(".*bus=([^ ]+).*bus=([^ ]+).*", "\\2", V1),
+            name = sub(".* (Transformer\\.tr\\(r:[^)]+\\)).*", "\\1", V1)
+        )
+    # drop the V1 column
+    txdss <- txdss %>% select(-V1)
+
+    return (txdss)
+}
+
+for (region in regions) {
+    print(paste("Processing region: ", region))
+    tx.df <- tx_dss_to_df(region, dss_path, data_path)
+    # create a subdirectory for the region if it doesn't exist
+    dir.create(paste(data_path, region, sep = "/"), showWarnings = FALSE)
+    # export buses.df into an RDS and CSV object in the exports folder
+    # saveRDS(tx.df, paste(data_path, region, "tx_df.rds", sep = "/"))
+    write.csv(tx.df, paste(data_path, region, "tx_df.csv", sep = "/"), row.names = FALSE)
+}
+```
+
+## Combine Lines, Buses, and Transformers into a Single Data Frame
+Lines
+```{r}
+# read and combine into a single df
+combine_csv <- function(all.df, region, filename) {
+    region.df <- read.csv(paste(csv_path, region, filename, sep = "/"))
+    region.df$region <- region
+    all.df <- rbind(all.df, region.df)
+    return (all.df)
+}
+all.df <- data.frame()
+for (region in regions) {
+    print(paste("Processing region: ", region))
+    all.df <- combine_csv(all.df, region, "buses_df.csv")
+}
+write.csv(all.df, paste(csv_path, "buses_df.csv", sep = "/"), row.names = FALSE)
+```
