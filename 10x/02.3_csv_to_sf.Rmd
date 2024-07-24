@@ -94,11 +94,6 @@ lines.p13u.df <- lines.p13u.df %>%
 lines.p13u.df <- lines.p13u.df %>% filter(!is.na(lat1) & !is.na(lat2))
 
 # convert to sf object as linestrings from lng1, lat1 to lng2, lat2
-# lines.p13u.sf <- lines.p13u.df %>% 
-#     rowwise() %>%
-#     mutate(geometry = st_sfc(st_linestring(matrix(c(lng1, lat1, lng2, lat2), ncol = 2, byrow = TRUE)))) %>%
-#     ungroup()
-
 lines.p13u.df <- lines.p13u.df %>%
     mutate(wkt = paste("LINESTRING(", lng1, lat1, ",", lng2, lat2, ")", sep = " "))
 
@@ -155,7 +150,103 @@ lines.sf <- st_as_sf(lines.df, wkt = "wkt", crs = 4326)
 lines.sf <- lines.sf %>% 
     rename(geometry = wkt)
 glimpse(lines.sf)
+# drop columns region.x and region.y
+lines.sf <- lines.sf %>% select(-region.x, -region.y)
 
 # export lines.sf as RDS
 saveRDS(lines.sf, paste(csv_path, "lines_sf.rds", sep = "/"))
+```
+
+# Match Transformers & Buses in P13U
+```{r}
+# read in the P13U buses and lines
+buses.p13u.df <- read.csv(paste(csv_path, "P13U", "buses_df.csv", sep = "/"), header = TRUE, sep = ",")
+tx.p13u.df <- read.csv(paste(csv_path, "P13U", "tx_df.csv", sep = "/"), header = TRUE, sep = ",")
+glimpse(tx.p13u.df)
+# find any buses that contain ".1.2.3" in their name
+# buses.p13u.df %>% filter(grepl("\\.", bus)) %>% select(bus)
+# no buses have even a period in their name >> drop everything after the period in the "bus1" and "bus2" column of tx.p13u.df
+tx.p13u.df$bus1 <- gsub("\\..*", "", tx.p13u.df$bus1)
+tx.p13u.df$bus2 <- gsub("\\..*", "", tx.p13u.df$bus2)
+
+# convert buses to a df
+# match on bus1 for the tx
+tx.p13u.df <- tx.p13u.df %>% 
+    left_join(buses.p13u.df, by = c("bus1" = "bus")) %>% 
+    select(-voltage) %>%
+    rename(lat1 = lat, lng1 = lng)
+# match on bus2 for the tx
+tx.p13u.df <- tx.p13u.df %>% 
+    left_join(buses.p13u.df, by = c("bus2" = "bus")) %>% 
+    select(-voltage) %>%
+    rename(lat2 = lat, lng2 = lng)
+glimpse(tx.p13u.df)
+
+# count the number of tx that are missing a bus
+tx.p13u.df %>% filter(is.na(lat1) | is.na(lat2)) %>% nrow()
+# 0!
+# none are missing a bus1 or bus2
+# remove tx that are missing a bus
+# tx.p13u.df <- tx.p13u.df %>% filter(!is.na(lat1) & !is.na(lat2))
+
+# convert to sf object as txtrings from lng1, lat1 to lng2, lat2
+tx.p13u.df <- tx.p13u.df %>%
+    mutate(wkt = paste("LINESTRING(", lng1, lat1, ",", lng2, lat2, ")", sep = " "))
+
+tx.p13u.df <- tx.p13u.df %>% select(-lat1, -lng1, -lat2, -lng2)
+
+tx.p13u.sf <- st_as_sf(tx.p13u.df, wkt = "wkt", crs = 4326)
+
+tx.p13u.sf <- tx.p13u.sf %>% 
+    rename (geometry = wkt)
+    # select(-region)
+
+glimpse(tx.p13u.sf)
+# export tx.p13u.sf as RDS
+saveRDS(tx.p13u.sf, paste(csv_path, "P13U", "tx_sf.rds", sep = "/"))
+```
+
+# Match All Transformers & Buses in SFO
+```{r}
+# read in the P13U buses and lines
+buses.df <- read.csv(paste(csv_path, "buses_df.csv", sep = "/"), header = TRUE, sep = ",")
+tx.df <- read.csv(paste(csv_path, "tx_df.csv", sep = "/"), header = TRUE, sep = ",")
+glimpse(tx.df)
+
+# remove the suffixes after the "." from the bus names
+tx.df$bus1 <- gsub("\\..*", "", tx.df$bus1)
+tx.df$bus2 <- gsub("\\..*", "", tx.df$bus2)
+
+# match on bus1 for the tx
+tx.df <- tx.df %>% 
+    left_join(buses.df, by = c("bus1" = "bus")) %>% 
+    select(-voltage) %>%
+    rename(lat1 = lat, lng1 = lng)
+# match on bus2 for the tx
+tx.df <- tx.df %>% 
+    left_join(buses.df, by = c("bus2" = "bus")) %>% 
+    select(-voltage) %>%
+    rename(lat2 = lat, lng2 = lng)
+glimpse(tx.df)
+
+# count the number of tx that are missing a bus
+tx.df %>% filter(is.na(lat1) | is.na(lat2)) %>% nrow()
+# only 92!
+# remove tx that are missing a bus
+tx.df <- tx.df %>% filter(!is.na(lat1) & !is.na(lat2))
+
+# convert to sf object as txtrings from lng1, lat1 to lng2, lat2
+tx.df <- tx.df %>%
+    mutate(wkt = paste("LINESTRING(", lng1, lat1, ",", lng2, lat2, ")", sep = " "))
+tx.df <- tx.df %>% select(-lat1, -lng1, -lat2, -lng2)
+
+tx.sf <- st_as_sf(tx.df, wkt = "wkt", crs = 4326)
+
+tx.sf <- tx.sf %>% 
+    # rename (geometry = wkt) %>%
+    select(-region.x, -region.y)
+
+glimpse(tx.sf)
+# export tx.sf as RDS
+saveRDS(tx.sf, paste(csv_path, "tx_sf.rds", sep = "/"))
 ```
