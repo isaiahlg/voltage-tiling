@@ -9,105 +9,67 @@ library(tidygraph)
 library(igraph)
 ```
 
+## Define Global Variables
+```{r}
+# define the path to the dss files
+dss_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries"
+csv_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries_csv"
+var_path <- "10x/variablesdss"
+regions <- list.dirs(csv_path, full.names = FALSE, recursive = FALSE)
+region <- "P13U"
+```
+
 ## Read in Data
 ```{r}
 # read in RDS
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-map <- readRDS("10x/variables/map_stadia_z14.rds")
-
-# get the bounding box of map
-left <- attr(map, "bb")$ll.lon
-right <- attr(map, "bb")$ur.lon
-bottom <- attr(map, "bb")$ll.lat
-top <- attr(map, "bb")$ur.lat
+lines.df <- readRDS(paste(csv_path, region, "lines_df.rds", sep = "/"))
+buses.df <- readRDS(paste(csv_path, region, "buses_df.rds", sep = "/"))
+tx.df <- readRDS(paste(csv_path, region, "tx_df.rds", sep = "/"))
 ```
 
-
-# Conduct Network Analysis
+## Conduct Network Analysis
 - Calculate the distance matrix for the network --- yikes this might be too big
 - Recalculate the voltages at each node
-## Inspect the Input Data
+
+## Clean the Data to be Ready to Build the Network
 ```{r}
-# reread in the data
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
+# rename bus1 as "from" and bus2 to "to" in lines.df and tx.df
+lines.df <- lines.df %>% rename(from = bus1, to = bus2, name = line)
+tx.df <- tx.df %>% rename(from = bus1, to = bus2)
+buses.df <- buses.df %>% rename(name = bus)
 
-# inspect the data
-glimpse(buses.sf)
-glimpse(lines.sf)
+glimpse(buses.df)
+glimpse(lines.df)
+glimpse(tx.df)
 
-# look at values in lines.sf$name
-# lines.sf$name %>% unique()
-```
+# combine
+edges.df <- bind_rows(lines.df, tx.df)
 
-> glimpse(buses.sf)
-Rows: 295,430
-Columns: 5
-$ name     <chr> "p13udm3166", "p13udm3168", "p13udm3169", "p13udm3170", "p13u…
-$ voltage  <dbl> 0.9789937, 0.9798307, 0.9802534, 0.9706192, 0.9719708, 0.9730…
-$ lng      <dbl> -122.2683, -122.2682, -122.2679, -122.2690, -122.2701, -122.2…
-$ lat      <dbl> 37.86478, 37.86447, 37.86484, 37.86560, 37.86579, 37.86551, 3…
-$ geometry <POINT [°]> POINT (-122.2683 37.86478), POINT (-122.2682 37.86447),…
-> glimpse(lines.sf)
-Rows: 295,672
-Columns: 11
-$ is_switch   <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ is_open     <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ is_fuse     <lgl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ kva         <dbl> 7, 10, 8, 10, 8, 8, 6, 10, 10, 8, 10, 8, 8, 6, 10, 8, 10, …
-$ type        <fct> Transformer, Transformer, Transformer, Transformer, Transf…
-$ length..km. <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ ampacity    <dbl> NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA…
-$ name        <chr> "tr(r:p13udt769-p13udt769lv)", "tr(r:p13udt770-p13udt770lv…
-$ kvs         <list> <"12.47", "0.48">, <"7.2", "0.12">, <"7.2", "0.12">, <"7.…
-$ phases      <list> <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <>, <…
-$ geometry    <POINT [°]> POINT (-122.2682 37.86477), POINT (-122.2691 37.8655…
-> 
+# export
+saveRDS(edges.df, paste(csv_path, region, "edges_df.rds", sep = "/"))
 
-## Clean Up the Lines.SF and Buses.SF Data
-```{r}
-# create a unique numeric id for each bus
-buses.sf <- buses.sf %>% mutate(id = as.numeric(factor(name)))
-
-# create a unique numeric id for each line
-lines.sf <- lines.sf %>% mutate(id = as.numeric(factor(name)))
-
-# line names look like: "l(r:p13udm85893-p13udt22349lv)"
-# the from bus is "p13udm85893" and the to bus is "p13udt22349lv"
-# extract the from and to bus names from this string with regex
-lines.sf$from_bus <- str_extract(lines.sf$name, "(?<=:)\\w+")
-lines.sf$to_bus <- str_extract(lines.sf$name, "(?<=-)\\w+")
-glimpse(lines.sf)
-
-# now pull in the bus id for the from and to bus from buses.sf
-lines.sf$from <- buses.sf$id[match(lines.sf$from_bus, buses.sf$name)]
-lines.sf$to <- buses.sf$id[match(lines.sf$to_bus, buses.sf$name)]
-
-# check for any empty lines$from or lines.sf$to
-lines.sf.filt <- lines.sf %>%
-  filter(!is.na(from) & !is.na(to))
-
-# filter out any buses that are not to or from a line
-buses.sf.filt <- buses.sf %>%
-  filter(id %in% c(lines.sf.filt$from, lines.sf.filt$to))
+# filter out any buses that are not in the edges "from" or "to"
+buses.df <- buses.df %>%
+  filter(name %in% edges.df$from | name %in% edges.df$to)
+# from 296015 to 296015 > none removed!!
 ```
 
 ## Build the Network
 ```{r}
 # ensure all edges have a node
 graph <- tidygraph::tbl_graph(
-  nodes = buses.sf,
-  edges = tibble(lines.sf.filt),
+  nodes = buses.df,
+  edges = tibble(edges.df),
   directed = FALSE
 )
-saveRDS(graph, "10x/variables/graph.rds")
+graph
+saveRDS(graph, "10x/variablesdss/graph.rds")
 ```
 
 ## Check the Number of Components in the Network
 ```{r}
 # read in the network
-graph <- readRDS("10x/variables/graph.rds")
+graph <- readRDS("10x/variablesdss/graph.rds")
 
 # calculate components
 graph <- graph %>%
@@ -120,6 +82,10 @@ graph <- graph %>%
   mutate(n = n()) %>%
   ungroup()
 
+# show components with the most number of nodes
+graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% arrange(desc(n)) %>% head(10)
+# 1 component with 80,644 nodes, then everything else is less than 150 nodes per component
+
 # inspect things
 # graph
 # max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
@@ -131,19 +97,19 @@ graph <- graph %>%
 # # use log scale
 # graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% ggplot(aes(x = n)) + geom_histogram(binwidth = 1) + scale_y_log10()
  
-saveRDS(graph, "10x/variables/graph.rds")
+saveRDS(graph, "10x/variablesdss/graph.rds")
 ```
 
 ## Join with Buses.SF and Plot
 ```{r}
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-graph <- readRDS("10x/variables/graph.rds")
+buses.sf <- readRDS("10x/variablesdss/buses_sf.rds")
+graph <- readRDS("10x/variablesdss/graph.rds")
 
 # add the "component" and "n" columns to buses.sf
 # buses.sf <- buses.sf %>%
 #   left_join(graph %>% activate(nodes) %>% as_tibble() %>% select(name, component, n), by = c("name" = "name"))
 
-# saveRDS(buses.sf, "10x/variables/buses_sf.rds")
+# saveRDS(buses.sf, "10x/variablesdss/buses_sf.rds")
 
 # keep just buses where n > 1
 buses.sf.filt <- buses.sf %>%
@@ -168,291 +134,6 @@ ggsave(
   limitsize = FALSE
 )
 ```
-Without Capacitors: 46642 components
-With Capacitors: 46820 components
-Number of Capacitors: 178 > they don't join up the network, it's a parsing problem
-
-> graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
-Storing counts in `nn`, as `n` already present in input
-ℹ Use `name = "new_name"` to pick a new name.
-# A tibble: 23 × 2
-        n    nn
-    <int> <int>
- 1      1 46600
- 2      2    15
- 3      3     2
- 4      4     3
- 5      5     1
- 6      6     3
- 7      7     1
- 8      8     2
- 9      9     1
-10     18     1
-11     35     1
-12     44     1
-13    220     1
-14    456     1
-15   1644     1
-16   2042     1
-17   3721     1
-18   3931     1
-19   6155     1
-20   6316     1
-21   6715     1
-22  31875     1
-23 185555     1
-
-    nodes      number
-      per          of
-component  components
-
-      1       46600
-      2          15
-      3           2
-      4           3
-      5           1
-      6           3
-      7           1
-      8           2
-      9           1
-     18           1
-     35           1
-     44           1
-    220           1
-    456           1
-   1644           1
-   2042           1
-   3721           1
-   3931           1
-   6155           1
-   6316           1
-   6715           1
-  31875           1
- 185555           1
-
-## Inspect Buses in Each Component
-```{r}
-# read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-
-# look at the first 10 bus names from the group n = 185555
-buses.sf %>%
-  filter(n == 185555) %>%
-  select(name) %>%
-  tail(10)
-# p13udm3166
-# p13udt5017-p13udt5023x
-# p13udt23087-p13uhs9_1247x
-
-# look at the first 10 bus names from the group n = 31875
-buses.sf %>%
-  filter(n == 31875) %>%
-  # select(name) %>%
-  head()
-# p13udm55801
-# p13udt1255-p13udt6473xxx
-# p13udt23781-p13udt25361x
-
-buses.sf %>%
-  st_drop_geometry() %>%
-  filter(n == 1) %>%
-  select(name) %>%
-  # head()
-  tail()
-# p13ulv119132
-# p13ulv119150
-# p13udt1225-p13udt1226x
-# p13udt24054-p13udt3947x **
-# p13udt24056-p13udt24058x
-# p13udt24286-p13udt5025x
-# p13udt24296-p13udt5024xxx
-# p13udt24292-p13udt5010xxx
-
-
-
-# look for the string contained within in lines.sf$name
-lines.sf %>%
-  filter(str_detect(name, "p13udt24054-p13udt3947")) %>% 
-  mutate(geometry2 = st_as_text(geometry)) %>%
-  st_drop_geometry() %>%
-  select(geometry2)
-  # show the full string value
-
-
-
-#   kva   type length..km. ampacity                                           name kvs phases                        geometry   geometry2
-# 1  NA   Line      127138        3                    l(r:p13udt24054-p13udt3947)          A  LINESTRING (-122.2188 37.80...   LINESTRING (-122.2188 37.80784, -122.2188 37.80793, -122.2187 37.80796, -122.2186 37.808, -122.2185 37.80804, -122.2184 37.80796, -122.2184 37.80787, -122.2184 37.8079)
-# 2  NA Switch           1        3 padswitch(r:p13udt24054-p13udt3947)p13u_162677          A  LINESTRING (-122.2188 37.80...   LINESTRING (-122.2188 37.80786, -122.2188 37.80784)
-# 3  NA Switch           1        3 padswitch(r:p13udt24054-p13udt3947)p13u_162678          A  LINESTRING (-122.2184 37.80...   LINESTRING (-122.2184 37.8079, -122.2184 37.80787)
-# 4  NA   Fuse           1       10      fuse(r:p13udt24054-p13udt3947)p13u_193012          A  LINESTRING (-122.2189 37.80...   LINESTRING (-122.2189 37.80789, -122.2188 37.80786)
-
-# I looked in loads and capacitors and pvsystems and storage and none of the names have the underscores
-# I'm not sure what the third component is for but I don't think it's important
-
-  
-# look for the string contained within in buses.sf$name
-buses.sf %>%
-  filter(str_detect(name, "p13udt100")) %>%
-  filter(name == "p13udt100") %>%
-  print(n=Inf)
-# #                      name   voltage       lng      lat component      n                    geometry
-# 1  p13udt24054-p13udt3947xx 0.9635021 -122.2188 37.80784         1 185555  POINT (-122.2188 37.80784)
-# 2 p13udt24054-p13udt3947xxx 0.9632959 -122.2184 37.80790         1 185555  POINT (-122.2184 37.80790) # 35.77m apart
-# 3   p13udt24054-p13udt3947x 0.9635021 -122.2188 37.80786     46638      1  POINT (-122.2188 37.80786) # 2.224m apart
-
-# Types of Names of Buses
-# p13udm3166 > distribution main, at medium voltage
-# p13udt769 > distribution transformer
-# p13udt769lv > distribution transformer low voltage
-# p13ulv28878 > low voltage, regular bus at low voltage
-# p13udt13213-p13udt13214xx > not sure why there are multiple with x's
-# p13udt13213-p13udt13214xxx
-
-# Group of Buses
-# p13udt100
-# p13udt100-p13udt224x
-# p13udt100-p13udt224xx
-# p13udt100-p13udt232x
-# p13udt100-p13udt232xx
-# p13udt100-p13udt315x
-# p13udt100-p13udt315xx
-# p13udt100-p13udt315xxx
-
-# rownu,name,                 volt,  lng,      lat,    comp,n,  geometry,
-# 52286,p13udt100,            0.9657,-122.2672,37.8968,1,185555,[object Object],
-# 56360,p13udt100-p13udt224x, 0.9657,-122.2672,37.8967,1,185555,[object Object],
-# 56361,p13udt100-p13udt224xx,0.9657,-122.2677,37.8972,2,31875, [object Object],
-# 56364,p13udt100-p13udt232x, 0.9657,-122.2672,37.8968,1,185555,[object Object],
-# 56365,p13udt100-p13udt232xx,0.9656,-122.2669,37.8970,1,185555,[object Object],
-# 56367,p13udt100-p13udt315x, 0.9657,-122.2673,37.8968,1,185555,[object Object],
-# 56366,p13udt100-p13udt315xx,0.9657,-122.2673,37.8965,1,185555,[object Object],
-
-# Abbreviations
-# p13u > this stands for this region
-# dm > distribution main
-# dt > distribution transformer
-# lv > low voltage
-
-
-```
-### What Am I Seeing
-A given bus name, such as "p13udt24292-p13udt5010" actually corresponds to three buses:
-1. p13udt24292-p13udt5010xxx
-2. p13udt24292-p13udt5010xx
-3. p13udt24292-p13udt5010x
-There is no bus without the x at all. THey have ever so slightly different locations. But if you search in the lines for the string without an x, you get:
-1. A line that matches the name with no x
-2. 2 pad switches
-3. 1 fuse 
-
-Search for each of these buses....check their lat long
-
-## Inspect Lines
-```{r}
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
-# look at the first 10 line names
-lines.sf %>%
-  head(10)
-
-lines.sf %>% 
-  tail(10)
-
-# show the unique values of type and count of rows per type
-lines.sf %>%
-  st_drop_geometry() %>%
-  count(type)
-
-# if is_fuse is TRUE, then type should be "Fuse"
-lines.sf <- lines.sf %>%
-  mutate(type = if_else(!is.na(is_fuse), if_else(is_fuse, "Fuse", type), type))
-
-# if is_switch is TRUE, then type should be "Switch"
-lines.sf <- lines.sf %>%
-  mutate(type = if_else(!is.na(is_switch), if_else(is_switch, "Switch", type), type))
-
-# drop the is_ columns
-lines.sf <- lines.sf %>%
-  select(-is_fuse, -is_switch, -is_open)
-
-lines.sf
-
-# export the cleaned lines.sf
-saveRDS(lines.sf, "10x/variables/lines_clean_sf.rds")
-
-# inspect the head and tail for each type of line
-lines.sf %>%
-  filter(type == "Fuse") %>%
-  # head()
-  tail()
-# name: fuse(r:p13udt24286-p13udt5025)p13u_193047
-# name bottom: fuse(r:p13udt1265-p13udt25344)p13u_193198
-# count = 4462
-
-lines.sf %>%
-  filter(type == "Transformer") %>%
-  # head()
-  tail()
-# name: tr(r:p13udt769-p13udt769lv)
-# name bottom: tr(r:p13udt25654-p13udt25654lv)
-# count = 33673
-
-lines.sf %>%
-  filter(type == "Switch") %>%
-  # head()
-  tail()
-# name top: padswitch(r:p13udt13213-p13udt13214)p13u_148879
-# name mid: elbswitch(r:p13udt1581-p13udt25367)p13u_189485
-# name bottom: goab_disswitch(r:p13udt11540-p13udt5011)p13u_195047
-# count = 41659
-
-lines.sf %>%
-  filter(type == "Line") %>%
-  # head()
-  tail()
-# name top: l(r:p13udt770lv-p13ulv38995)
-# name mid: l(r:p13udm3170-p13udt770lv) 
-# name mid2: l(r:p13udt23780-p13udt23786)
-# name bottom: l(r:p13udm86924-p13udt22795lv)
-# count = 215878
-
-# Total of 4 types: Fuse, Transformer, Switch, Line
-# Fuse: 4462
-# Transformer: 33673
-# Switch: 41659
-# Line: 215878
-# Sum: 295672
-# Total Values: 295672
-# Difference: 0
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -468,7 +149,7 @@ lines.sf %>%
 ```{r}
 # library(igraph) # for network analysis
 # # read in graph
-# graph <- readRDS("10x/variables/graph.rds")
+# graph <- readRDS("10x/variablesdss/graph.rds")
 
 # # create force directed layout
 # fr <- as.data.frame(layout_with_fr(graph, dim = 2))
@@ -481,7 +162,7 @@ lines.sf %>%
 ```{r}
 library(igraph) # for network analysis
 # read in graph and inspect
-graph <- readRDS("10x/variables/graph.rds")
+graph <- readRDS("10x/variablesdss/graph.rds")
 graph
 ##############################################
 # calculate the distances between all nodes
@@ -492,8 +173,8 @@ sim2_matrix <- 1 / ((dist_matrix + 1)^2)
 
 ##############################################
 # export matrices
-saveRDS(dist_matrix, "10x/variables/dist_matrix.rds")
-saveRDS(sim2_matrix, "10x/variables/sim2_matrix.rds")
+saveRDS(dist_matrix, "10x/variablesdss/dist_matrix.rds")
+saveRDS(sim2_matrix, "10x/variablesdss/sim2_matrix.rds")
 
 # remove variables from RAM until needed
 rm(dist_matrix, sim2_matrix)
@@ -502,8 +183,8 @@ rm(dist_matrix, sim2_matrix)
 ## Proceed with Weighted Network Analysis
 ```{r}
 # import buses.sf
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-sim2_matrix <- readRDS("10x/variables/sim2_matrix.rds")
+buses.sf <- readRDS("10x/variablesdss/buses_sf.rds")
+sim2_matrix <- readRDS("10x/variablesdss/sim2_matrix.rds")
 
 # set up a function to calculate weighted voltage considering n nearest neighbors by hops (including self)
 neighbors <- 3
@@ -540,7 +221,7 @@ Sys.time()
 # buses.sf <- buses.sf %>% select(sort(names(.)))
 
 # reexport buses.sf
-saveRDS(buses.sf, "10x/variables/buses_sf.rds")
+saveRDS(buses.sf, "10x/variablesdss/buses_sf.rds")
 ```
 
 
@@ -556,8 +237,8 @@ library(gstat)
 ## Create Contours
 ```{r}
 # load in lines buffer
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-lines.buffer <- readRDS("10x/variables/lines_buffer_100m.rds")
+buses.sf <- readRDS("10x/variablesdss/buses_sf.rds")
+lines.buffer <- readRDS("10x/variablesdss/lines_buffer_100m.rds")
 
 # Convert the lines buffer to a vector
 lines.buffer.sv <- vect(lines.buffer)
@@ -586,11 +267,11 @@ mg <- gstat(
 )
 ######################
 contour <- interpolate(grd, mg, debug.level=0, index=1)
-saveRDS(contour, "10x/variables/contour_n1000_rast.rds")
+saveRDS(contour, "10x/variablesdss/contour_n1000_rast.rds")
 ######################
 # plot(contour)
 contour.mask <- mask(contour, lines.buffer.sv)
-saveRDS(contour.mask, "10x/variables/contour_mask_n1000_rast.rds")
+saveRDS(contour.mask, "10x/variablesdss/contour_mask_n1000_rast.rds")
 # plot(contour.mask)
 
 # export the contour to RDS
@@ -603,7 +284,7 @@ rm(buses.sf, buses.df, lines.buffer, lines.buffer.sv, ext, grd, neighbors, mg)
 ## Prepare Contour for Plotting
 ```{r}
 # read in contour object
-contour.mask <- readRDS("10x/variables/contour_mask_n1000_rast.rds")
+contour.mask <- readRDS("10x/variablesdss/contour_mask_n1000_rast.rds")
 
 # convert to data.frame
 contour.df <- as.data.frame(contour, xy=TRUE)
@@ -615,7 +296,7 @@ contour.df <- contour.df %>% rename(voltage = idw.pred)
 # contour.df <- na.omit(contour.df) # removes none
 
 # export df 
-saveRDS(contour.df, "10x/variables/contour_n1000_df.rds")
+saveRDS(contour.df, "10x/variablesdss/contour_n1000_df.rds")
 glimpse(contour.df)
 
 rm(contour)
@@ -629,8 +310,8 @@ $ voltage <dbl> 0.9800596, 0.9800594, 0.9800592, 0.9800590, 0.9800588, 0.9800…
 ## Plot Contours
 ```{r}
 # import map
-map <- readRDS("10x/variables/map_stadia_z14.rds")
-contour.df <- readRDS("10x/variables/contour_n1000_df.rds")
+map <- readRDS("10x/variablesdss/map_stadia_z14.rds")
+contour.df <- readRDS("10x/variablesdss/contour_n1000_df.rds")
 
 # glimpse(contour.df)
 # plot it
