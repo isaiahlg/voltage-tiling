@@ -16,97 +16,102 @@ dss_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries"
 csv_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries_csv"
 var_path <- "10x/variablesdss"
 regions <- list.dirs(csv_path, full.names = FALSE, recursive = FALSE)
-region <- "P13U"
+# region <- "P17U"
 ```
 
-## Read in Data
+## Define Function 
 ```{r}
-# read in RDS
-lines.df <- readRDS(paste(csv_path, region, "lines_df.rds", sep = "/"))
-buses.df <- readRDS(paste(csv_path, region, "buses_df.rds", sep = "/"))
-tx.df <- readRDS(paste(csv_path, region, "tx_df.rds", sep = "/"))
+convert_df_to_igraph <- function(csv_path, region) {
+  # read in RDS
+  lines.df <- readRDS(paste(csv_path, region, "lines_df.rds", sep = "/"))
+  buses.df <- readRDS(paste(csv_path, region, "buses_df.rds", sep = "/"))
+  tx.df <- readRDS(paste(csv_path, region, "tx_df.rds", sep = "/"))
+
+  # rename bus1 as "from" and bus2 to "to" in lines.df and tx.df
+  lines.df <- lines.df %>% rename(from = bus1, to = bus2, name = line)
+  tx.df <- tx.df %>% rename(from = bus1, to = bus2)
+  nodes.df <- buses.df %>% rename(name = bus)
+
+  # glimpse(nodes.df)
+  # glimpse(lines.df)
+  # glimpse(tx.df)
+
+  # combine
+  edges.df <- bind_rows(lines.df, tx.df)
+
+  # check for nodes in neither edge list
+  nodes.df %>% filter(!(name %in% edges.df$from | name %in% edges.df$to)) %>% nrow()
+
+  # filter out any nodes that are not in the edges "from" or "to"
+  nodes.df <- nodes.df %>%
+    filter(name %in% edges.df$from | name %in% edges.df$to)
+  # from 296286 to 296286 > none removed!!
+  # export
+  saveRDS(edges.df, paste(csv_path, region, "edges_df.rds", sep = "/"))
+  saveRDS(nodes.df, paste(csv_path, region, "nodes_df.rds", sep = "/"))
+
+  # ensure all edges have a node
+  graph <- tidygraph::tbl_graph(
+    nodes = nodes.df,
+    edges = tibble(edges.df),
+    directed = FALSE
+  )
+  # graph
+
+  # calculate components
+  graph <- graph %>%
+    activate(nodes) %>%
+    mutate(component = components(graph)$membership)
+
+  # add a column that counts the number of nodes in each component
+  graph <- graph %>%
+    group_by(component) %>%
+    mutate(n = n()) %>%
+    ungroup()
+
+  # show components with the most number of nodes
+  # graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% arrange(desc(n)) %>% nrow()
+  # graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% arrange(desc(n)) %>% head(10)
+  # Round 1: 1 component with 80,644 nodes, then everything else is less than 150 nodes per component
+  # Round 2: 1 component with 80,915 nodes, then everything else is less than 150 nodes per component
+
+  max_n <- max(graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% pull(n))
+  total_nodes <- nrow(nodes.df)
+  percent_connected <- max_n / total_nodes * 100
+  print(paste("Max value of n: ", max_n, "\nTotal Components: ", total_nodes, "\nPercent Connected: ", percent_connected))
+
+  # inspect things
+  # graph
+  # max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
+
+  # # count unique values of number of nodes in each component
+  # graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
+
+  # # show me a histogram of the number of nodes in each component
+  # # use log scale
+  # graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% ggplot(aes(x = n)) + geom_histogram(binwidth = 1) + scale_y_log10()
+  return (graph)
+}
 ```
 
-## Conduct Network Analysis
-- Calculate the distance matrix for the network --- yikes this might be too big
-- Recalculate the voltages at each node
-
-## Clean the Data to be Ready to Build the Network
+## Run the Function for All Regions
 ```{r}
-# rename bus1 as "from" and bus2 to "to" in lines.df and tx.df
-lines.df <- lines.df %>% rename(from = bus1, to = bus2, name = line)
-tx.df <- tx.df %>% rename(from = bus1, to = bus2)
-nodes.df <- buses.df %>% rename(name = bus)
-
-glimpse(nodes.df)
-glimpse(lines.df)
-glimpse(tx.df)
-
-# combine
-edges.df <- bind_rows(lines.df, tx.df)
-
-# check for nodes in neither edge list
-nodes.df %>% filter(!(name %in% edges.df$from | name %in% edges.df$to)) %>% nrow()
-
-# filter out any nodes that are not in the edges "from" or "to"
-nodes.df <- nodes.df %>%
-  filter(name %in% edges.df$from | name %in% edges.df$to)
-# from 296286 to 296286 > none removed!!
-# export
-saveRDS(edges.df, paste(csv_path, region, "edges_df.rds", sep = "/"))
-saveRDS(nodes.df, paste(csv_path, region, "nodes_df.rds", sep = "/"))
+for (region in regions) {
+  print(paste0("Processing region: ", region))
+  graph <- convert_df_to_igraph(csv_path, region)
+  saveRDS(graph, paste(csv_path, region, "graph.rds", sep = "/"))
+}
 ```
 
-## Build the Network
+## Check for # Connected
 ```{r}
-nodes.df <- readRDS(paste(csv_path, region, "nodes_df.rds", sep = "/"))
-edges.df <- readRDS(paste(csv_path, region, "edges_df.rds", sep = "/"))
-
-
-# ensure all edges have a node
-graph <- tidygraph::tbl_graph(
-  nodes = nodes.df,
-  edges = tibble(edges.df),
-  directed = FALSE
-)
-graph
-saveRDS(graph, paste(csv_path, region, "graph.rds", sep = "/"))
-```
-
-## Check the Number of Components in the Network
-```{r}
-# read in the network
-graph <- readRDS(paste(csv_path, region, "graph.rds", sep = "/"))
-
-# calculate components
-graph <- graph %>%
-  activate(nodes) %>%
-  mutate(component = components(graph)$membership)
-
-# add a column that counts the number of nodes in each component
-graph <- graph %>%
-  group_by(component) %>%
-  mutate(n = n()) %>%
-  ungroup()
-
-# show components with the most number of nodes
-graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% arrange(desc(n)) %>% nrow()
-graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% arrange(desc(n)) %>% head(10)
-# Round 1: 1 component with 80,644 nodes, then everything else is less than 150 nodes per component
-# Round 2: 1 component with 80,915 nodes, then everything else is less than 150 nodes per component
-
-# inspect things
-# graph
-# max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
-
-# # count unique values of number of nodes in each component
-graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
-
-# # show me a histogram of the number of nodes in each component
-# # use log scale
-# graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% ggplot(aes(x = n)) + geom_histogram(binwidth = 1) + scale_y_log10()
- 
-saveRDS(graph, paste(csv_path, region, "graph.rds", sep = "/"))
+for (region in regions) {
+  graph <- readRDS(paste(csv_path, region, "graph.rds", sep = "/"))
+  max_n <- max(graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% pull(n))
+  total_nodes <- graph %>% activate(nodes) %>% as_tibble() %>% nrow()
+  percent_connected <- max_n / total_nodes * 100
+  print(paste("Region: ", region, "\nMax value of n: ", max_n, "\nTotal Nodes: ", total_nodes, "\nPercent Connected: ", percent_connected, sep = "\n"))
+}
 ```
 
       n buses/    n components w/
@@ -142,6 +147,47 @@ saveRDS(graph, paste(csv_path, region, "graph.rds", sep = "/"))
 28       80          1
 29      148          1
 30    80915          1
+
+Region:  P10U    # Nodes in Largest Component: 13870    Total Nodes:  54612        Percent Connected in Largest Component:  25.39%
+Region:  P11U    # Nodes in Largest Component: 27010    Total Nodes:  116863       Percent Connected in Largest Component:  23.11%
+Region:  P12U    # Nodes in Largest Component: 13349    Total Nodes:  104759       Percent Connected in Largest Component:  12.74%
+Region:  P13U    # Nodes in Largest Component: 80915    Total Nodes:  296286       Percent Connected in Largest Component:  27.30%
+Region:  P14U    # Nodes in Largest Component: 35621    Total Nodes:  217458       Percent Connected in Largest Component:  16.38%
+Region:  P15U    # Nodes in Largest Component: 51057    Total Nodes:  231434       Percent Connected in Largest Component:  22.06%
+Region:  P16U    # Nodes in Largest Component: 39591    Total Nodes:  198827       Percent Connected in Largest Component:  19.91%
+Region:  P17U    # Nodes in Largest Component: 30210    Total Nodes:  175327       Percent Connected in Largest Component:  17.23%
+Region:  P18U    # Nodes in Largest Component: 13896    Total Nodes:  119713       Percent Connected in Largest Component:  11.60%
+Region:  P19U    # Nodes in Largest Component: 32298    Total Nodes:  152778       Percent Connected in Largest Component:  21.14%
+Region:  P1R     # Nodes in Largest Component: 2904     Total Nodes:  120334       Percent Connected in Largest Component:  2.41%
+Region:  P1U     # Nodes in Largest Component: 4937     Total Nodes:  18587        Percent Connected in Largest Component:  26.56%
+Region:  P20U    # Nodes in Largest Component: 56542    Total Nodes:  263694       Percent Connected in Largest Component:  21.44%
+Region:  P21U    # Nodes in Largest Component: 8399     Total Nodes:  75984        Percent Connected in Largest Component:  11.05%
+Region:  P22U    # Nodes in Largest Component: 33304    Total Nodes:  167789       Percent Connected in Largest Component:  19.84%
+Region:  P23U    # Nodes in Largest Component: 41867    Total Nodes:  203534       Percent Connected in Largest Component:  20.57%
+Region:  P24U    # Nodes in Largest Component: 8676     Total Nodes:  75602        Percent Connected in Largest Component:  11.47%
+Region:  P25U    # Nodes in Largest Component: 12229    Total Nodes:  111543       Percent Connected in Largest Component:  10.96%
+Region:  P26U    # Nodes in Largest Component: 35411    Total Nodes:  164027       Percent Connected in Largest Component:  21.58%
+Region:  P27U    # Nodes in Largest Component: 1975     Total Nodes:  16262        Percent Connected in Largest Component:  12.14%
+Region:  P28U    # Nodes in Largest Component: 6967     Total Nodes:  98654        Percent Connected in Largest Component:  7.06%
+Region:  P29U    # Nodes in Largest Component: 8362     Total Nodes:  40736        Percent Connected in Largest Component:  20.52%
+Region:  P2R     # Nodes in Largest Component: 8431     Total Nodes:  77115        Percent Connected in Largest Component:  10.93%
+Region:  P2U     # Nodes in Largest Component: 29047    Total Nodes:  98209        Percent Connected in Largest Component:  29.57%
+Region:  P30U    # Nodes in Largest Component: 42920    Total Nodes:  228418       Percent Connected in Largest Component:  18.79%
+Region:  P31U    # Nodes in Largest Component: 31521    Total Nodes:  184751       Percent Connected in Largest Component:  17.06%
+Region:  P32U    # Nodes in Largest Component: 30757    Total Nodes:  149454       Percent Connected in Largest Component:  20.57%
+Region:  P33U    # Nodes in Largest Component: 6281     Total Nodes:  34428        Percent Connected in Largest Component:  18.24%
+Region:  P34U    # Nodes in Largest Component: 9074     Total Nodes:  42163        Percent Connected in Largest Component:  21.52%
+Region:  P35U    # Nodes in Largest Component: 31       Total Nodes:  57           Percent Connected in Largest Component:  54.38%
+Region:  P3R     # Nodes in Largest Component: 1183     Total Nodes:  8620         Percent Connected in Largest Component:  13.72%
+Region:  P3U     # Nodes in Largest Component: 32283    Total Nodes:  171029       Percent Connected in Largest Component:  18.87%
+Region:  P4R     # Nodes in Largest Component: 297      Total Nodes:  2732         Percent Connected in Largest Component:  10.87%
+Region:  P4U     # Nodes in Largest Component: 87       Total Nodes:  182          Percent Connected in Largest Component:  47.80%
+Region:  P5R     # Nodes in Largest Component: 422      Total Nodes:  1235         Percent Connected in Largest Component:  34.17%
+Region:  P5U     # Nodes in Largest Component: 36171    Total Nodes:  348251       Percent Connected in Largest Component:  10.38%
+Region:  P6U     # Nodes in Largest Component: 8840     Total Nodes:  82974        Percent Connected in Largest Component:  10.65%
+Region:  P7U     # Nodes in Largest Component: 10075    Total Nodes:  86719        Percent Connected in Largest Component:  11.61%
+Region:  P8U     # Nodes in Largest Component: 22976    Total Nodes:  111000       Percent Connected in Largest Component:  20.69%
+Region:  P9U     # Nodes in Largest Component: 42782    Total Nodes:  284317       Percent Connected in Largest Component:  15.04%
 
 ## Join with Buses.SF and Plot
 ```{r}

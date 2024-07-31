@@ -253,6 +253,23 @@ glimpse(tx.sf)
 saveRDS(tx.sf, paste(csv_path, "tx_sf.rds", sep = "/"))
 ```
 
+## Create Region Specific Matched Versions of Lines & Transformers
+```{r}
+buses.df <- readRDS(paste(csv_path, "buses_df.rds", sep = "/"))
+lines.df <- readRDS(paste(csv_path, "lines_df.rds", sep = "/"))
+tx.df <- readRDS(paste(csv_path, "tx_df.rds", sep = "/"))
+
+for (r in regions) {
+    print(paste0("Processing region: ", r))
+    buses.region.df <- buses.df %>% filter(region == r)
+    lines.region.df <- lines.df %>% filter(region == r)
+    tx.region.df <- tx.df %>% filter(region == r)
+    saveRDS(buses.region.df, paste(csv_path, r, "buses_df.rds", sep = "/"))
+    saveRDS(lines.region.df, paste(csv_path, r, "lines_df.rds", sep = "/"))
+    saveRDS(tx.region.df, paste(csv_path, r, "tx_df.rds", sep = "/"))
+}   
+```
+
 ## Make a Tiny CSV Version of Buses, Lines, and Transformers
 ```{r}
 # buses
