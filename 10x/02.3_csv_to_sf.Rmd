@@ -258,18 +258,28 @@ saveRDS(tx.sf, paste(csv_path, "tx_sf.rds", sep = "/"))
 # buses
 buses.df <- readRDS(paste(csv_path, "buses_df.rds", sep = "/"))
 glimpse(buses.df)
+buses.p13u.df <- buses.df %>% filter(region == "P13U")
 buses.tiny.df <- buses.df %>% select(lat, lng, voltage)
+buses.tiny.p13u.df <- buses.p13u.df %>% select(lat, lng, voltage)
 write_csv(buses.tiny.df, paste(csv_path, "buses_tiny.csv", sep = "/"))
+write_csv(buses.tiny.p13u.df, paste(csv_path, "P13U", "buses_tiny.csv", sep = "/"))
 
 # lines
 lines.df <- readRDS(paste(csv_path, "lines_df.rds", sep = "/"))
 glimpse(lines.df)
+lines.p13u.df <- lines.df %>% filter(region == "P13U")
 lines.tiny.df <- lines.df %>% select(lat1, lng1, lat2, lng2)
+lines.tiny.p13u.df <- lines.p13u.df %>% select(lat1, lng1, lat2, lng2)
+
 # tx
 tx.df <- readRDS(paste(csv_path, "tx_df.rds", sep = "/"))
 glimpse(tx.df)
+tx.p13u.df <- readRDS(paste(csv_path, "P13U", "tx_df.rds", sep = "/"))
 tx.tiny.df <- tx.df %>% select(lat1, lng1, lat2, lng2)
+tx.tiny.p13u.df <- tx.p13u.df %>% select(lat1, lng1, lat2, lng2)
 # combine lines and tx
 edges.tiny.df <- bind_rows(lines.tiny.df, tx.tiny.df)
+edges.tiny.p13u.df <- bind_rows(lines.tiny.p13u.df, tx.tiny.p13u.df)
 write_csv(edges.tiny.df, paste(csv_path, "edges_tiny.csv", sep = "/"))
+write_csv(edges.tiny.p13u.df, paste(csv_path, "P13U", "edges_tiny.csv", sep = "/"))
 ```

@@ -36,40 +36,47 @@ tx.df <- readRDS(paste(csv_path, region, "tx_df.rds", sep = "/"))
 # rename bus1 as "from" and bus2 to "to" in lines.df and tx.df
 lines.df <- lines.df %>% rename(from = bus1, to = bus2, name = line)
 tx.df <- tx.df %>% rename(from = bus1, to = bus2)
-buses.df <- buses.df %>% rename(name = bus)
+nodes.df <- buses.df %>% rename(name = bus)
 
-glimpse(buses.df)
+glimpse(nodes.df)
 glimpse(lines.df)
 glimpse(tx.df)
 
 # combine
 edges.df <- bind_rows(lines.df, tx.df)
 
+# check for nodes in neither edge list
+nodes.df %>% filter(!(name %in% edges.df$from | name %in% edges.df$to)) %>% nrow()
+
+# filter out any nodes that are not in the edges "from" or "to"
+nodes.df <- nodes.df %>%
+  filter(name %in% edges.df$from | name %in% edges.df$to)
+# from 296286 to 296286 > none removed!!
 # export
 saveRDS(edges.df, paste(csv_path, region, "edges_df.rds", sep = "/"))
-
-# filter out any buses that are not in the edges "from" or "to"
-buses.df <- buses.df %>%
-  filter(name %in% edges.df$from | name %in% edges.df$to)
-# from 296015 to 296015 > none removed!!
+saveRDS(nodes.df, paste(csv_path, region, "nodes_df.rds", sep = "/"))
 ```
 
 ## Build the Network
 ```{r}
+nodes.df <- readRDS(paste(csv_path, region, "nodes_df.rds", sep = "/"))
+edges.df <- readRDS(paste(csv_path, region, "edges_df.rds", sep = "/"))
+
+
 # ensure all edges have a node
 graph <- tidygraph::tbl_graph(
-  nodes = buses.df,
+  nodes = nodes.df,
   edges = tibble(edges.df),
   directed = FALSE
 )
 graph
-saveRDS(graph, "10x/variablesdss/graph.rds")
+saveRDS(graph, paste(csv_path, region, "graph.rds", sep = "/"))
 ```
 
 ## Check the Number of Components in the Network
 ```{r}
 # read in the network
-graph <- readRDS("10x/variablesdss/graph.rds")
+graph <- readRDS(paste(csv_path, region, "graph.rds", sep = "/"))
 
 # calculate components
 graph <- graph %>%
@@ -83,41 +90,78 @@ graph <- graph %>%
   ungroup()
 
 # show components with the most number of nodes
+graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% arrange(desc(n)) %>% nrow()
 graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% arrange(desc(n)) %>% head(10)
-# 1 component with 80,644 nodes, then everything else is less than 150 nodes per component
+# Round 1: 1 component with 80,644 nodes, then everything else is less than 150 nodes per component
+# Round 2: 1 component with 80,915 nodes, then everything else is less than 150 nodes per component
 
 # inspect things
 # graph
 # max(graph %>% activate(nodes) %>% as_tibble() %>% pull(component)) # 46k components, can't work with that
 
 # # count unique values of number of nodes in each component
-# graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
+graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% count(n)%>% print(n=50)
 
 # # show me a histogram of the number of nodes in each component
 # # use log scale
 # graph %>% activate(nodes) %>% as_tibble() %>% count(component) %>% ggplot(aes(x = n)) + geom_histogram(binwidth = 1) + scale_y_log10()
  
-saveRDS(graph, "10x/variablesdss/graph.rds")
+saveRDS(graph, paste(csv_path, region, "graph.rds", sep = "/"))
 ```
+
+      n buses/    n components w/
+      component   this many buses in it
+      <int>      <int>
+ 1        2       9188
+ 2        3       1527
+ 3        4       2528
+ 4        5       3115
+ 5        6       2845
+ 6        7       2337
+ 7        8       2268
+ 8        9       2110
+ 9       10       1938
+10       11       1498
+11       12       1330
+12       13        924
+13       14        771
+14       15        484
+15       16        332
+16       17        206
+17       18        131
+18       19         75
+19       20         37
+20       21         16
+21       22          7
+22       23          2
+23       24          2
+24       25          1
+25       27          1
+26       28          1
+27       51          1
+28       80          1
+29      148          1
+30    80915          1
 
 ## Join with Buses.SF and Plot
 ```{r}
-buses.sf <- readRDS("10x/variablesdss/buses_sf.rds")
-graph <- readRDS("10x/variablesdss/graph.rds")
+nodes.df <- readRDS(paste(csv_path, region, "nodes_df.rds", sep = "/"))
+graph <- readRDS(paste(csv_path, region, "graph.rds", sep = "/"))
 
-# add the "component" and "n" columns to buses.sf
-# buses.sf <- buses.sf %>%
-#   left_join(graph %>% activate(nodes) %>% as_tibble() %>% select(name, component, n), by = c("name" = "name"))
+# add the "component" and "n" columns to nodes.df
+nodes.df <- nodes.df %>%
+  left_join(graph %>% activate(nodes) %>% as_tibble() %>% select(name, component, n), by = c("name" = "name"))
 
-# saveRDS(buses.sf, "10x/variablesdss/buses_sf.rds")
+glimpse(nodes.df)
+write.csv(nodes.df, paste(csv_path, region, "nodes_w_comp_df.csv", sep = "/"))
 
 # keep just buses where n > 1
-buses.sf.filt <- buses.sf %>%
+nodes.df.filt <- nodes.df %>%
   filter(n > 1000)
 
 
 # plot the buses
-component_plot <- buses.sf.filt %>%
+component_plot <- nodes.df.filt %>%
   ggplot() +
   geom_sf(aes(color = as.factor(component)), size = 0.5) +
   theme_bw() 
@@ -149,7 +193,7 @@ ggsave(
 ```{r}
 # library(igraph) # for network analysis
 # # read in graph
-# graph <- readRDS("10x/variablesdss/graph.rds")
+# graph <- readRDS(paste(csv_path, region, "graph.rds", sep = "/"))
 
 # # create force directed layout
 # fr <- as.data.frame(layout_with_fr(graph, dim = 2))
@@ -162,7 +206,7 @@ ggsave(
 ```{r}
 library(igraph) # for network analysis
 # read in graph and inspect
-graph <- readRDS("10x/variablesdss/graph.rds")
+graph <- readRDS(paste(csv_path, region, "graph.rds", sep = "/"))
 graph
 ##############################################
 # calculate the distances between all nodes
