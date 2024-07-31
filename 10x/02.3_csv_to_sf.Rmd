@@ -24,16 +24,12 @@ dir.create(var_path, showWarnings = FALSE)
 ## Convert the Buses to Spatial Data Frames
 ```{r}
 # read in buses and lines.df
-buses.df <- read.csv(paste(csv_path, "buses_df.csv", sep = "/"), header = TRUE, sep = ",")
-# saveRDS(buses.df, paste(csv_path, "buses_df.rds", sep = "/"))
-# buses.df$region <- as.factor(buses.df$region)
-# buses.p13u.df <- buses.df %>% filter(region == "P13U")
-# saveRDS(buses.p13u.df, paste(csv_path, "P13U", "buses_df.rds", sep = "/"))
+buses.df <- readRDS(paste(csv_path, "buses_df.rds", sep = "/"))
 
 # convert buses.df to a sf object
 buses.sf <- st_as_sf(buses.df, coords = c("lng", "lat"), crs = 4326)
 buses.sf$region <- as.factor(buses.sf$region)
-glimpse(buses.sf)
+# glimpse(buses.sf)
 
 # export buses sf as RDS
 saveRDS(buses.sf, paste(csv_path, "buses_sf.rds", sep = "/"))
@@ -41,30 +37,27 @@ saveRDS(buses.sf, paste(csv_path, "buses_sf.rds", sep = "/"))
 # make a P13U version
 buses.p13u.sf <- buses.sf %>% filter(region == "P13U") %>% select(-region) 
 saveRDS(buses.p13u.sf, paste(csv_path, "P13U", "buses_sf.rds", sep = "/"))
-rm(buses.p13u.sf, buses.sf)
+# rm(buses.p13u.sf, buses.sf)
 ```
 
 ## Match Lines to Buses
 ```{r}
 # read in the lines
-lines.df <- read.csv(paste(csv_path, "lines_df.csv", sep = "/"), header = TRUE, sep = ",")
+lines.df <- readRDS(paste(csv_path, "lines_df.rds", sep = "/"))
 lines.df$region <- as.factor(lines.df$region)
 glimpse(lines.df)
-
-# export as RDS
-saveRDS(lines.df, paste(csv_path, "lines_df.rds", sep = "/"))
 
 # keep just P13U
 lines.p13u.df <- lines.df %>% filter(region == "P13U")
 # save the P13U lines
 saveRDS(lines.p13u.df, paste(csv_path, "P13U", "lines_df.rds", sep = "/"))
-rm(lines.df, lines.p13u.df)
+# rm(lines.df, lines.p13u.df)
 ```
 
 ## Match Lines & Buses in P13U
 ```{r}
 # read in the P13U buses and lines
-buses.p13u.df <- read.csv(paste(csv_path, "P13U", "buses_df.csv", sep = "/"), header = TRUE, sep = ",")
+buses.p13u.df <- readRDS(paste(csv_path, "P13U", "buses_df.rds", sep = "/"))
 lines.p13u.df <- readRDS(paste(csv_path, "P13U", "lines_df.rds", sep = "/"))
 
 # find any buses that contain ".1.2.3" in their name
@@ -89,14 +82,15 @@ lines.p13u.df <- lines.p13u.df %>%
 # count the number of lines that are missing a bus
 # lines.p13u.df %>% filter(is.na(lat1) | is.na(lat2)) %>% nrow()
 # only 447!!!!! That's hardly any.
+# now it's 0!! 
 # inspect lines that are missing a bus
 # lines.p13u.df %>% filter(is.na(lat1) | is.na(lat2)) %>% select(line, bus1, bus2)
 # count number of lines that don't have a bus1 or bus2
 # lines.p13u.df %>% filter(is.na(bus1) | is.na(bus2)) %>% nrow()
 # none are missing a bus1 or bus2
 # remove lines that are missing a bus
-lines.p13u.df <- lines.p13u.df %>% filter(!is.na(lat1) & !is.na(lat2))
-glimpse(lines.p13u.df)
+# lines.p13u.df <- lines.p13u.df %>% filter(!is.na(lat1) & !is.na(lat2))
+# glimpse(lines.p13u.df)
 lines.p13u.df <- lines.p13u.df %>% 
     select(-region)
 saveRDS(lines.p13u.df, paste(csv_path, "P13U", "lines_df.rds", sep = "/"))
@@ -139,11 +133,11 @@ lines.df <- lines.df %>%
     left_join(buses.df, by = c("bus2" = "bus")) %>% 
     select(-voltage) %>%
     rename(lat2 = lat, lng2 = lng)
-
+# count the number of lines that are missing a bus
+lines.df %>% filter(is.na(lat1) | is.na(lat2)) %>% nrow()
+# just 4!! probably due to the many to many warning above
 # remove the lines that didn't match
 lines.df <- lines.df %>% filter(!is.na(lat1) & !is.na(lat2))
-# about 4000 lines removed
-glimpse(lines.df)
 lines.df <- lines.df %>% select(-region.x, -region.y)
 saveRDS(lines.df, paste(csv_path, "lines_df.rds", sep = "/"))
 
@@ -157,7 +151,6 @@ lines.sf <- st_as_sf(lines.df, wkt = "wkt", crs = 4326)
 lines.sf <- lines.sf %>% 
     rename(geometry = wkt)
 glimpse(lines.sf)
-# drop columns region.x and region.y
 
 # export lines.sf as RDS
 saveRDS(lines.sf, paste(csv_path, "lines_sf.rds", sep = "/"))
@@ -166,8 +159,8 @@ saveRDS(lines.sf, paste(csv_path, "lines_sf.rds", sep = "/"))
 # Match Transformers & Buses in P13U
 ```{r}
 # read in the P13U buses and lines
-buses.p13u.df <- read.csv(paste(csv_path, "P13U", "buses_df.csv", sep = "/"), header = TRUE, sep = ",")
-tx.p13u.df <- read.csv(paste(csv_path, "P13U", "tx_df.csv", sep = "/"), header = TRUE, sep = ",")
+buses.p13u.df <- readRDS(paste(csv_path, "P13U", "buses_df.rds", sep = "/"))
+tx.p13u.df <- readRDS(paste(csv_path, "P13U", "tx_df.rds", sep = "/"))
 glimpse(tx.p13u.df)
 # find any buses that contain ".1.2.3" in their name
 # buses.p13u.df %>% filter(grepl("\\.", bus)) %>% select(bus)
@@ -196,20 +189,15 @@ tx.p13u.df %>% filter(is.na(lat1) | is.na(lat2)) %>% nrow()
 # tx.p13u.df <- tx.p13u.df %>% filter(!is.na(lat1) & !is.na(lat2))
 
 # drop the region columns
-tx.p13u.df <- tx.p13u.df %>% select(-region.x, -region.y)
 saveRDS(tx.p13u.df, paste(csv_path, "P13U", "tx_df.rds", sep = "/"))
 
 # convert to sf object as txtrings from lng1, lat1 to lng2, lat2
 tx.p13u.df <- tx.p13u.df %>%
     mutate(wkt = paste("LINESTRING(", lng1, lat1, ",", lng2, lat2, ")", sep = " "))
-
 tx.p13u.df <- tx.p13u.df %>% select(-lat1, -lng1, -lat2, -lng2)
-
 tx.p13u.sf <- st_as_sf(tx.p13u.df, wkt = "wkt", crs = 4326)
-
 tx.p13u.sf <- tx.p13u.sf %>% 
     rename (geometry = wkt)
-    # select(-region)
 
 glimpse(tx.p13u.sf)
 # export tx.p13u.sf as RDS
@@ -219,8 +207,8 @@ saveRDS(tx.p13u.sf, paste(csv_path, "P13U", "tx_sf.rds", sep = "/"))
 # Match All Transformers & Buses in SFO
 ```{r}
 # read in the P13U buses and lines
-buses.df <- read.csv(paste(csv_path, "buses_df.csv", sep = "/"), header = TRUE, sep = ",")
-tx.df <- read.csv(paste(csv_path, "tx_df.csv", sep = "/"), header = TRUE, sep = ",")
+buses.df <- readRDS(paste(csv_path, "buses_df.rds", sep = "/"))
+tx.df <- readRDS(paste(csv_path, "tx_df.rds", sep = "/"))
 glimpse(tx.df)
 
 # remove the suffixes after the "." from the bus names
@@ -263,4 +251,25 @@ tx.sf <- tx.sf %>%
 glimpse(tx.sf)
 # export tx.sf as RDS
 saveRDS(tx.sf, paste(csv_path, "tx_sf.rds", sep = "/"))
+```
+
+## Make a Tiny CSV Version of Buses, Lines, and Transformers
+```{r}
+# buses
+buses.df <- readRDS(paste(csv_path, "buses_df.rds", sep = "/"))
+glimpse(buses.df)
+buses.tiny.df <- buses.df %>% select(lat, lng, voltage)
+write_csv(buses.tiny.df, paste(csv_path, "buses_tiny.csv", sep = "/"))
+
+# lines
+lines.df <- readRDS(paste(csv_path, "lines_df.rds", sep = "/"))
+glimpse(lines.df)
+lines.tiny.df <- lines.df %>% select(lat1, lng1, lat2, lng2)
+# tx
+tx.df <- readRDS(paste(csv_path, "tx_df.rds", sep = "/"))
+glimpse(tx.df)
+tx.tiny.df <- tx.df %>% select(lat1, lng1, lat2, lng2)
+# combine lines and tx
+edges.tiny.df <- bind_rows(lines.tiny.df, tx.tiny.df)
+write_csv(edges.tiny.df, paste(csv_path, "edges_tiny.csv", sep = "/"))
 ```
