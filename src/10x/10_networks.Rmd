@@ -16,7 +16,7 @@ dss_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries"
 csv_path <- "~/Documents/nrel/data/sfo/solar_extreme_batteries_high_timeseries_csv"
 var_path <- "10x/variablesdss"
 regions <- list.dirs(csv_path, full.names = FALSE, recursive = FALSE)
-# region <- "P17U"
+region <- "P13U"
 ```
 
 ## Define Function 
