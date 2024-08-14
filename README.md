@@ -5,3 +5,5 @@ The scripts in this repo are for handling DSS distribution grid data, primarily 
 2. smbl_envc_6: this is another section of the SFO grid, but this one includes more types of grid components such as transformers, batteries, and solar panels. It also has time series of bus voltages.
 3. evsatscale: this contains some of the code for processing the EV charging simulations. 
 4. 10x: This code is for scaling up the analysis in p13u to a 10x larger grid with about 300,0000 buses. 
+
+Please note that many of the data paths in the scripts will need to be updated to match the new folder structure in this repo.
