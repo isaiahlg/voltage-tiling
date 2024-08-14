@@ -10,9 +10,9 @@ library(ggmap)
 ## Read in Data
 ```{r}
 # read in RDS
-# lines.sf <- readRDS("10x/variables/lines_sf.rds")
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-map <- readRDS("10x/variables/map_stadia_z14.rds")
+# lines.sf <- readRDS("data/10x/lines_sf.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+map <- readRDS("data/10x/map_stadia_z14.rds")
 
 # get the bounding box of map
 left <- attr(map, "bb")$ll.lon
@@ -86,13 +86,13 @@ buses.s2$area <- st_area(buses.s2$geometry)
 # inspect before exporting
 glimpse(buses.s2)
 # export
-saveRDS(buses.s2, "10x/variables/buses_s2_r14to15.rds")
+saveRDS(buses.s2, "data/10x/buses_s2_r14to15.rds")
 ```
 
 ## Visualize Tiles
 ```{r}
 # import buses.s2 and lines
-buses.s2 <- readRDS("10x/variables/buses_s2_r14to18.rds")
+buses.s2 <- readRDS("data/10x/buses_s2_r14to18.rds")
 # plot just desired resolutions
 buses.s2 <- buses.s2 %>% filter(res == 18)
 
@@ -160,8 +160,8 @@ ggsave(
 ## Distribution Plot V2 for Single-Res Hexes
 ```{r}
 # read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.s2 <- readRDS("10x/variables/buses_s2.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.s2 <- readRDS("data/10x/buses_s2.rds")
 
 # keep just plotted resolution
 # buses.s2 <- buses.s2 %>% filter(res == 11)
@@ -214,8 +214,8 @@ s2_res_vhi <- 12
 s2_std_dev_max <- 0.003
 
 # read in hexes
-buses.s2 <- readRDS("10x/variables/buses_s2.rds")
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.s2 <- readRDS("data/10x/buses_s2.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
 
 # filter out hexes with high variance
 buses.s2.low <- buses.s2 %>% 
@@ -245,15 +245,15 @@ buses.s2.filt.true <- rbind(buses.s2.filt.low, buses.s2.filt.med, buses.s2.filt.
 # rm(buses.s2.low, buses.s2.med, buses.s2.hi)
 
 # export filtered hexes
-saveRDS(buses.s2.filt, "10x/variables/buses_s2_filt.rds")
-saveRDS(buses.s2.filt.true, "10x/variables/buses_s2_filt_true.rds")
+saveRDS(buses.s2.filt, "data/10x/buses_s2_filt.rds")
+saveRDS(buses.s2.filt.true, "data/10x/buses_s2_filt_true.rds")
 ```
 
 ## Plot Multi-Res Hexes
 ```{r}
 # import buses.s2 and lines
-buses.s2.filt <- readRDS("10x/variables/buses_s2_filt.rds")
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.s2.filt <- readRDS("data/10x/buses_s2_filt.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
 
 # plot multi-res
 plot.base <- ggplot() + theme_bw()
@@ -280,8 +280,8 @@ plot.hex.multires + ggtitle("Voltage Hexes at Multiple Resolutions & Lines, Res 
 ## Redo Multi-Res Hexmap for Paper
 ```{r}
 # import buses.s2 and lines
-buses.s2.filt <- readRDS("10x/variables/buses_s2_filt.rds")
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.s2.filt <- readRDS("data/10x/buses_s2_filt.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
 
 # plot it
 s2_plot <- ggmap(map) +
@@ -333,8 +333,8 @@ s2_plot <- ggmap(map) +
 ```{r}
 # import filtered hexes
 # import buses.sf
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.s2.filt <- readRDS("10x/variables/buses_s2_filt.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.s2.filt <- readRDS("data/10x/buses_s2_filt.rds")
 
 # calculate the area of each polygon in hex.sf into a column area
 buses.s2.filt <- buses.s2.filt %>% mutate(area = drop_units(st_area(geometry)))
@@ -368,8 +368,8 @@ ggplot() +
 ## Distribution Plot V2 for Hexes
 ```{r}
 # read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.s2 <- readRDS("10x/variables/buses_s2.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.s2 <- readRDS("data/10x/buses_s2.rds")
 
 # calculate the area of each polygon in hex.sf into a column area
 buses.s2 <- buses.s2 %>% mutate(area = drop_units(st_area(geometry)))
@@ -416,8 +416,8 @@ ggplot() +
 ## Compute Statistics for Hexes
 ```{r}
 # read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.s2 <- readRDS("10x/variables/buses_s2.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.s2 <- readRDS("data/10x/buses_s2.rds")
 buses.s2 <- buses.s2 %>% filter(res >= 10 & res <= 12)
 
 # normalize area column
@@ -488,7 +488,7 @@ abline(v=.95, lty=2)
 ## Extract S2 ID for Each Bus
 # ```{r}
 # Read back in buses.sf
-# buses.sf <- readRDS("10x/variables/buses_sf_s2.rds")
+# buses.sf <- readRDS("data/10x/buses_sf_s2.rds")
 
 # # Define the range of resolutions
 # min_res <- 14

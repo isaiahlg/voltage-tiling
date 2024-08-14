@@ -10,9 +10,9 @@ library(ggmap)
 ## Read in Data
 ```{r}
 # read in RDS 
-# lines.sf <- readRDS("10x/variables/lines_sf.rds")
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-map <- readRDS("10x/variables/map_stadia_z14.rds")
+# lines.sf <- readRDS("data/10x/lines_sf.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+map <- readRDS("data/10x/map_stadia_z14.rds")
 
 # get the bounding box of map
 left <- attr(map, "bb")$ll.lon
@@ -30,8 +30,8 @@ library(gstat)
 ## Create Contours
 ```{r}
 # load in lines buffer
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.buffer.sv <- readRDS("10x/variables/buses_buffer_1000m_vec.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.buffer.sv <- readRDS("data/10x/buses_buffer_1000m_vec.rds")
 
 # get the extent of buses.buffer.sv
 ext <- ext(buses.buffer.sv)
@@ -58,7 +58,7 @@ mg <- gstat(
 )
 ######################
 contour <- interpolate(grd, mg, debug.level=0, index=1)
-saveRDS(contour, "10x/variables/contour_n10_rast.rds")
+saveRDS(contour, "data/10x/contour_n10_rast.rds")
 ######################
 
 # clear out extra variables not needed later
@@ -68,8 +68,8 @@ rm(buses.sf, buses.df, buses.buffer.sv, ext, grd, neighbors, mg)
 ## Prepare Contour for Plotting by Masking
 ```{r}  
 # read in data
-contour <- readRDS("10x/variables/contour_n100_rast.rds")
-boundary.sv <- readRDS("10x/variables/buses_concave_c1_sv.rds")
+contour <- readRDS("data/10x/contour_n100_rast.rds")
+boundary.sv <- readRDS("data/10x/buses_concave_c1_sv.rds")
 
 # mask
 contour.mask <- mask(contour, boundary.sv)
@@ -84,7 +84,7 @@ contour.df <- contour.df %>% rename(voltage = idw.pred)
 # contour.df <- na.omit(contour.df) # removes none
 
 # export df 
-saveRDS(contour.df, "10x/variables/contour_mask_n10_df.rds")
+saveRDS(contour.df, "data/10x/contour_mask_n10_df.rds")
 # glimpse(contour.df)
 
 rm(contour.mask, contour.df, contour, boundary.sv)
@@ -98,8 +98,8 @@ $ voltage <dbl> 0.9800596, 0.9800594, 0.9800592, 0.9800590, 0.9800588, 0.9800…
 ## Plot Contours
 ```{r}
 # import map
-map <- readRDS("10x/variables/map_stadia_z14.rds")
-contour.df <- readRDS("10x/variables/contour_mask_n10_df.rds")
+map <- readRDS("data/10x/map_stadia_z14.rds")
+contour.df <- readRDS("data/10x/contour_mask_n10_df.rds")
 
 # glimpse(contour.df)
 # plot it

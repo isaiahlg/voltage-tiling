@@ -3,4 +3,4 @@
 .Rproj.user
 *_matrix.rds
 .env
-10x/variables/buses_buffer_*
+data/10x/buses_buffer_*

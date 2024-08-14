@@ -39,7 +39,7 @@ glimpse(p13u_sf)
 p13u_sf %>% sapply(levels)
 
 # export sf object to RDS
-saveRDS(p13u_sf, "10x/variables/p13u_sf.rds")
+saveRDS(p13u_sf, "data/10x/p13u_sf.rds")
 ```
 Rows: 882,412
 Columns: 24
@@ -76,7 +76,7 @@ $type
 ```{r}
 # look at the unique values of the type column
 # read in RDS
-p13u <- readRDS("10x/variables/p13u_sf.rds")
+p13u <- readRDS("data/10x/p13u_sf.rds")
 
 # look at the names of the type "Load"
 p13u %>%
@@ -139,6 +139,6 @@ buses.sf <- buses.sf %>%
 buses.sf <- buses.sf %>%
     distinct(geometry, .keep_all = TRUE)
 
-saveRDS(lines.sf, "10x/variables/lines_sf.rds")
-saveRDS(buses.sf, "10x/variables/buses_sf.rds")
+saveRDS(lines.sf, "data/10x/lines_sf.rds")
+saveRDS(buses.sf, "data/10x/buses_sf.rds")
 ```

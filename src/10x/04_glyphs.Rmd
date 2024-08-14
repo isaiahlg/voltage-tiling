@@ -9,9 +9,9 @@ library(ggmap)
 ## Read in Data
 ```{r}
 # read in RDS
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-map <- readRDS("10x/variables/map_stadia_z14.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+map <- readRDS("data/10x/map_stadia_z14.rds")
 
 # get the bounding box of map
 left <- attr(map, "bb")$ll.lon

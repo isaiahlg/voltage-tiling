@@ -10,9 +10,9 @@ library(ggmap)
 ## Read in Data
 ```{r}
 # read in RDS
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-map <- readRDS("10x/variables/map_stadia_z14.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+map <- readRDS("data/10x/map_stadia_z14.rds")
 
 # get the bounding box of map
 left <- attr(map, "bb")$ll.lon
@@ -66,13 +66,13 @@ buses.h3$area <- st_area(buses.h3$geometry)
 # inspect before exporting
 glimpse(buses.h3)
 # export
-saveRDS(buses.h3, "10x/variables/buses_h3_r8to12.rds")
+saveRDS(buses.h3, "data/10x/buses_h3_r8to12.rds")
 ```
 
 ## Visualize Hexes
 ```{r}
 # import buses.h3 and lines
-buses.h3 <- readRDS("10x/variables/buses_h3_r8to12.rds")
+buses.h3 <- readRDS("data/10x/buses_h3_r8to12.rds")
 # plot just desired resolutions
 buses.h3 <- buses.h3 %>% filter(res == 12)
 glimpse(buses.h3)
@@ -141,8 +141,8 @@ ggsave(
 ## Distribution Plot V2 for Single-Res Hexes
 ```{r}
 # read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.h3 <- readRDS("10x/variables/buses_h3.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.h3 <- readRDS("data/10x/buses_h3.rds")
 
 # keep just plotted resolution
 # buses.h3 <- buses.h3 %>% filter(res == 11)
@@ -195,8 +195,8 @@ h3_res_vhi <- 12
 h3_std_dev_max <- 0.003
 
 # read in hexes
-buses.h3 <- readRDS("10x/variables/buses_h3.rds")
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.h3 <- readRDS("data/10x/buses_h3.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
 
 # filter out hexes with high variance
 buses.h3.low <- buses.h3 %>% 
@@ -226,15 +226,15 @@ buses.h3.filt.true <- rbind(buses.h3.filt.low, buses.h3.filt.med, buses.h3.filt.
 # rm(buses.h3.low, buses.h3.med, buses.h3.hi)
 
 # export filtered hexes
-saveRDS(buses.h3.filt, "10x/variables/buses_h3_filt.rds")
-saveRDS(buses.h3.filt.true, "10x/variables/buses_h3_filt_true.rds")
+saveRDS(buses.h3.filt, "data/10x/buses_h3_filt.rds")
+saveRDS(buses.h3.filt.true, "data/10x/buses_h3_filt_true.rds")
 ```
 
 ## Plot Multi-Res Hexes
 ```{r}
 # import buses.h3 and lines
-buses.h3.filt <- readRDS("10x/variables/buses_h3_filt.rds")
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.h3.filt <- readRDS("data/10x/buses_h3_filt.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
 
 # plot multi-res
 plot.base <- ggplot() + theme_bw()
@@ -261,8 +261,8 @@ plot.hex.multires + ggtitle("Voltage Hexes at Multiple Resolutions & Lines, Res 
 ## Redo Multi-Res Hexmap for Paper
 ```{r}
 # import buses.h3 and lines
-buses.h3.filt <- readRDS("10x/variables/buses_h3_filt.rds")
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
+buses.h3.filt <- readRDS("data/10x/buses_h3_filt.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
 
 # plot it
 h3_plot <- ggmap(map) +
@@ -314,8 +314,8 @@ h3_plot <- ggmap(map) +
 ```{r}
 # import filtered hexes
 # import buses.sf
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.h3.filt <- readRDS("10x/variables/buses_h3_filt.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.h3.filt <- readRDS("data/10x/buses_h3_filt.rds")
 
 # calculate the area of each polygon in hex.sf into a column area
 buses.h3.filt <- buses.h3.filt %>% mutate(area = drop_units(st_area(geometry)))
@@ -349,8 +349,8 @@ ggplot() +
 ## Distribution Plot V2 for Hexes
 ```{r}
 # read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.h3 <- readRDS("10x/variables/buses_h3.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.h3 <- readRDS("data/10x/buses_h3.rds")
 
 # calculate the area of each polygon in hex.sf into a column area
 buses.h3 <- buses.h3 %>% mutate(area = drop_units(st_area(geometry)))
@@ -397,8 +397,8 @@ ggplot() +
 ## Compute Statistics for Hexes
 ```{r}
 # read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-buses.h3 <- readRDS("10x/variables/buses_h3.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+buses.h3 <- readRDS("data/10x/buses_h3.rds")
 buses.h3 <- buses.h3 %>% filter(res >= 10 & res <= 12)
 
 # normalize area column

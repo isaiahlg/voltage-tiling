@@ -10,9 +10,9 @@ library(terra)
 ## Read in Data
 ```{r}
 # read in RDS
-lines.sf <- readRDS("10x/variables/lines_sf.rds")
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-map <- readRDS("10x/variables/map_stadia_z14.rds")
+lines.sf <- readRDS("data/10x/lines_sf.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+map <- readRDS("data/10x/map_stadia_z14.rds")
 
 # get the bounding box of map
 left <- attr(map, "bb")$ll.lon
@@ -31,7 +31,7 @@ library(units) # for manipulating geometry of voronoi
 ## Create Voronoi Tesselations
 ```{r}
 # read in buses.sv
-buses.sv <- readRDS("10x/variables/buses_vec.rds")
+buses.sv <- readRDS("data/10x/buses_vec.rds")
 
 ############################################################
 # create voronoi tesselation SpatialPolygon
@@ -45,7 +45,7 @@ voronoi.sv <- terra::voronoi(
 ############################################################
 
 # export
-saveRDS(voronoi.sv, "10x/variables/voronoi_sv.rds")
+saveRDS(voronoi.sv, "data/10x/voronoi_sv.rds")
 
 plot(voronoi.sv)
 ```
@@ -53,8 +53,8 @@ plot(voronoi.sv)
 ## Mask Voronoi and Convert to SF
 ```{r}
 # read in voronoi.sv
-boundary.sv <- readRDS("10x/variables/buses_concave_c2_sv.rds")
-voronoi.sv <- readRDS("10x/variables/voronoi_sv.rds")
+boundary.sv <- readRDS("data/10x/buses_concave_c2_sv.rds")
+voronoi.sv <- readRDS("data/10x/voronoi_sv.rds")
 
 # mask
 voronoi.mask <- intersect(voronoi.sv, boundary.sv)
@@ -69,7 +69,7 @@ voronoi.sf <- sf::st_as_sf(voronoi.mask)
 voronoi.sf <- sf::st_set_crs(voronoi.sf, 4326)
 
 # reexport voronoi.sf
-saveRDS(voronoi.sf, "10x/variables/voronoi_sf.rds")
+saveRDS(voronoi.sf, "data/10x/voronoi_sf.rds")
 
 # calculate the area of each polygon in voronoi.sf into a column area
 # voronoi.sf <- voronoi.sf %>% mutate(area = drop_units(st_area(geometry)))
@@ -81,7 +81,7 @@ saveRDS(voronoi.sf, "10x/variables/voronoi_sf.rds")
 ## Plot Voronoi
 ```{r}
 # read in voronoi.sf
-voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
+voronoi.sf <- readRDS("data/10x/voronoi_sf.rds")
 
 # plot it
 voronoi_plot <- ggmap(map) +
@@ -154,8 +154,8 @@ ggsave(
 ## Distribution Plot V2 for Voronoi
 ```{r}
 # read in data
-buses.sf <- readRDS("10x/variables/buses_sf.rds")
-voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
+buses.sf <- readRDS("data/10x/buses_sf.rds")
+voronoi.sf <- readRDS("data/10x/voronoi_sf.rds")
 
 # plot distribution of voltages against normal voltages
 ggplot() +
@@ -196,7 +196,7 @@ ggplot() +
 
 ## Computate Summary Statistics
 ```{r}
-voronoi.sf <- readRDS("10x/variables/voronoi_sf.rds")
+voronoi.sf <- readRDS("data/10x/voronoi_sf.rds")
 
 voronoi.sf$weightedarea <- voronoi.sf$area / sum(voronoi.sf$area)
 # voronoi.sf$areavoltage <- voronoi.sf$area * voronoi.sf$voltage
